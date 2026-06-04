@@ -24,6 +24,15 @@ fn fileExists(io: std.Io, path: []const u8) bool {
 //     };
 // }
 
+// fn longerThan3(s: []const u8) bool { return s.len > 3; }
+// var it = FilterIterator([]const u8){
+//     .items = list.items,
+//     .predicate = longerThan3,
+// };
+// while (it.next()) |s| {
+//     std.debug.print("{s}\n", .{s});
+// }
+
 fn linuxIsValidPort(comptime T: type, needle: []const T, haystack: anytype) bool {
     const Haystack = @TypeOf(haystack);
     switch (@typeInfo(Haystack)) {
@@ -61,6 +70,19 @@ fn listSerialPorts(
     return ports;
 }
 
+fn readFile(io: std.Io, path: []u8, buffer: []u8) ![]const u8 {
+    const file = try std.Io.Dir.cwd().openFile(io, path, .{});
+    defer file.close(io);
+
+    var reader = file.reader(io, buffer);
+
+    const n = try reader.interface.readSliceShort(buffer);
+
+    const vendorStr = std.mem.trim(u8, buffer[0..n], " \t\r\n");
+
+    return vendorStr;
+}
+
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
 
@@ -78,25 +100,22 @@ pub fn main(init: std.process.Init) !void {
         const parentPath = std.fs.path.dirname(realPath) orelse "/";
 
         const vendorPath = try std.fmt.allocPrint(arenaAllocator, "{s}/idVendor", .{parentPath});
+        const productPath = try std.fmt.allocPrint(arenaAllocator, "{s}/idProduct", .{parentPath});
         const hasVendor = fileExists(io, vendorPath);
+        const hasProduct = fileExists(io, productPath);
 
         // std.debug.print("path = {s}, has vendor: {}\n", .{ parentPath, hasVendor });
 
-        if (hasVendor) {
+        if (hasVendor and hasProduct) {
             var buf: [16]u8 = undefined;
 
-            const file = try std.Io.Dir.cwd().openFile(io, vendorPath, .{});
-            defer file.close(io);
+            const vendorStr = try readFile(io, vendorPath, &buf);
+            const vendorId = try std.fmt.parseInt(u32, vendorStr, 16);
 
-            var reader = file.reader(io, &buf);
+            const productStr = try readFile(io, productPath, &buf);
+            const productId = try std.fmt.parseInt(u32, productStr, 16);
 
-            const n = try reader.interface.readSliceShort(&buf);
-
-            const vendorStr = std.mem.trim(u8, buf[0..n], " \t\r\n");
-            // std.log.info("vendor id = \"{s}\"", .{vendorStr});
-            const vendor_id = try std.fmt.parseInt(u32, vendorStr, 16);
-
-            std.log.info("path = {s}, vendor_id = 0x{x}", .{ parentPath, vendor_id });
+            std.log.info("path = {s}, vendor Id = 0x{x}, product Id = 0x{x}", .{ parentPath, vendorId, productId });
         }
     }
 

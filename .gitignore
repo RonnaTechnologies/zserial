@@ -1,2 +1,3 @@
 .zig-cache
 zig-out
+lldb_pretty_printers.py

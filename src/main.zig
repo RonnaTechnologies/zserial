@@ -61,7 +61,7 @@ fn listSerialPorts(
     var dirIterator = dir.iterate();
 
     while (try dirIterator.next(io)) |dirContent| {
-        const name = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ path, dirContent.name });
+        const name = try std.fmt.allocPrint(allocator, "{s}", .{dirContent.name});
         if (linuxIsValidPort(u8, dirContent.name, &linuxAllowedDevices)) {
             try ports.append(allocator, name);
         }
@@ -93,8 +93,10 @@ pub fn main(init: std.process.Init) !void {
 
     const ports = try listSerialPorts(io, arenaAllocator, linuxSerialRoot);
 
+    var serialPorts = try std.ArrayList([]const u8).initCapacity(arenaAllocator, 2);
+
     for (ports.items) |port| {
-        const devicePath = try std.fmt.allocPrint(arenaAllocator, "{s}/device", .{port});
+        const devicePath = try std.fmt.allocPrint(arenaAllocator, "{s}/{s}/device", .{ linuxSerialRoot, port });
 
         const realPath = try std.Io.Dir.cwd().realPathFileAlloc(io, devicePath, arenaAllocator);
         const parentPath = std.fs.path.dirname(realPath) orelse "/";
@@ -115,11 +117,13 @@ pub fn main(init: std.process.Init) !void {
             const productStr = try readFile(io, productPath, &buf);
             const productId = try std.fmt.parseInt(u32, productStr, 16);
 
-            std.log.info("path = {s}, vendor Id = 0x{x}, product Id = 0x{x}", .{ parentPath, vendorId, productId });
+            try serialPorts.append(arenaAllocator, port);
+
+            std.log.info("port = /dev/{s}, path = {s}, vendor Id = 0x{x}, product Id = 0x{x}", .{ port, parentPath, vendorId, productId });
         }
     }
 
-    // for (ports.items) |name| {
-    // std.debug.print("{s}\n", .{name});
-    // }
+    for (serialPorts.items) |name| {
+        std.log.info("/dev/{s}\n", .{name});
+    }
 }

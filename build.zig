@@ -12,13 +12,14 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "zserial",
+        .use_llvm = true,
+        .use_lld = true,
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
         }),
     });
-
 
     switch (target.query.os_tag orelse @import("builtin").os.tag) {
         .macos => {

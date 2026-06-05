@@ -1,11 +1,13 @@
 const std = @import("std");
+const builtin = @import("builtin");
+const options = @import("buildOptions");
 
-const linuxSerialRoot: []const u8 = "/sys/class/tty";
-const linuxAllowedDevices = [_][]const u8{ "ttyS", "ttyUSB", "ttyXRUSB", "ttyACM", "ttyAMA", "rfcomm", "ttyAP", "ttyGS" };
-
-fn fileExists(io: std.Io, path: []const u8) bool {
-    return !std.meta.isError(std.Io.Dir.cwd().access(io, path, .{}));
-}
+const serial = switch (builtin.os.tag) {
+    .macos => @import("macos.zig"),
+    .linux => @import("linux.zig"),
+    .windows => @import("windows.zig"),
+    else => @compileError("unsupported OS: " ++ @tagName(builtin.os.tag)),
+};
 
 // fn FilterIterator(comptime T: type) type {
 //     return struct {
@@ -33,97 +35,26 @@ fn fileExists(io: std.Io, path: []const u8) bool {
 //     std.debug.print("{s}\n", .{s});
 // }
 
-fn linuxIsValidPort(comptime T: type, needle: []const T, haystack: anytype) bool {
-    const Haystack = @TypeOf(haystack);
-    switch (@typeInfo(Haystack)) {
-        .pointer => {
-            for (haystack) |value| {
-                if (std.mem.startsWith(T, needle, value)) {
-                    return true;
-                }
-            }
-            return false;
-        },
-        else => {
-            @compileError("Invalid container type.");
-        },
-    }
-}
-
-fn listSerialPorts(
-    io: std.Io,
-    allocator: std.mem.Allocator,
-    comptime path: []const u8,
-) !std.ArrayList([]u8) {
-    var ports: std.ArrayList([]u8) = .empty;
-
-    const dir = try std.Io.Dir.openDirAbsolute(io, path, .{ .iterate = true });
-    var dirIterator = dir.iterate();
-
-    while (try dirIterator.next(io)) |dirContent| {
-        const name = try std.fmt.allocPrint(allocator, "{s}", .{dirContent.name});
-        if (linuxIsValidPort(u8, dirContent.name, &linuxAllowedDevices)) {
-            try ports.append(allocator, name);
-        }
-    }
-
-    return ports;
-}
-
-fn readFile(io: std.Io, path: []u8, buffer: []u8) ![]const u8 {
-    const file = try std.Io.Dir.cwd().openFile(io, path, .{});
-    defer file.close(io);
-
-    var reader = file.reader(io, buffer);
-
-    const n = try reader.interface.readSliceShort(buffer);
-
-    const vendorStr = std.mem.trim(u8, buffer[0..n], " \t\r\n");
-
-    return vendorStr;
-}
-
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
+
+    std.log.info("Name: {s}, version: {s}", .{ options.name, options.version });
+
+    // std.log.info("ret = {d}", .{ret});
+
+    // _ = try std.ArrayList(SerialPortInfo).initCapacity(init.arena.allocator(), 2);
+
+    // Linux below
 
     var arena = std.heap.ArenaAllocator.init(init.gpa);
     defer arena.deinit();
 
     const arenaAllocator = arena.allocator();
 
-    const ports = try listSerialPorts(io, arenaAllocator, linuxSerialRoot);
+    const serialPorts = try serial.listPorts(io, arenaAllocator);
 
-    var serialPorts = try std.ArrayList([]const u8).initCapacity(arenaAllocator, 2);
-
-    for (ports.items) |port| {
-        const devicePath = try std.fmt.allocPrint(arenaAllocator, "{s}/{s}/device", .{ linuxSerialRoot, port });
-
-        const realPath = try std.Io.Dir.cwd().realPathFileAlloc(io, devicePath, arenaAllocator);
-        const parentPath = std.fs.path.dirname(realPath) orelse "/";
-
-        const vendorPath = try std.fmt.allocPrint(arenaAllocator, "{s}/idVendor", .{parentPath});
-        const productPath = try std.fmt.allocPrint(arenaAllocator, "{s}/idProduct", .{parentPath});
-        const hasVendor = fileExists(io, vendorPath);
-        const hasProduct = fileExists(io, productPath);
-
-        // std.debug.print("path = {s}, has vendor: {}\n", .{ parentPath, hasVendor });
-
-        if (hasVendor and hasProduct) {
-            var buf: [16]u8 = undefined;
-
-            const vendorStr = try readFile(io, vendorPath, &buf);
-            const vendorId = try std.fmt.parseInt(u32, vendorStr, 16);
-
-            const productStr = try readFile(io, productPath, &buf);
-            const productId = try std.fmt.parseInt(u32, productStr, 16);
-
-            try serialPorts.append(arenaAllocator, port);
-
-            std.log.info("port = /dev/{s}, path = {s}, vendor Id = 0x{x}, product Id = 0x{x}", .{ port, parentPath, vendorId, productId });
-        }
-    }
-
-    for (serialPorts.items) |name| {
-        std.log.info("/dev/{s}\n", .{name});
+    std.log.info("Serial ports found: ", .{});
+    for (serialPorts.items) |portInfo| {
+        std.log.info("/dev/{s}\n", .{portInfo.device});
     }
 }

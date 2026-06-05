@@ -59,6 +59,11 @@ pub fn build(b: *std.Build) void {
             exe.root_module.linkFramework("IOKit", .{});
             exe.root_module.linkFramework("CoreFoundation", .{});
         },
+        .windows => {
+            exe.root_module.linkSystemLibrary("setupapi", .{});
+            exe.root_module.linkSystemLibrary("cfgmgr32", .{});
+            exe.root_module.linkSystemLibrary("advapi32", .{});
+        },
         else => {
             const run_cmd = b.addRunArtifact(exe);
 

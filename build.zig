@@ -60,6 +60,15 @@ pub fn build(b: *std.Build) void {
             exe.root_module.linkFramework("CoreFoundation", .{});
         },
         .windows => {
+            const translate_c = b.addTranslateC(.{
+                .root_source_file = b.path("src/windows.h"),
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            });
+            const c_module = translate_c.createModule();
+            exe.root_module.addImport("c", c_module);
+
             exe.root_module.linkSystemLibrary("setupapi", .{});
             exe.root_module.linkSystemLibrary("cfgmgr32", .{});
             exe.root_module.linkSystemLibrary("advapi32", .{});

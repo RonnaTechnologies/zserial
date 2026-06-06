@@ -38,7 +38,7 @@ const serial = switch (builtin.os.tag) {
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
 
-    std.log.info("Name: {s}, version: {s}", .{ options.name, options.version });
+    // std.log.info("Name: {s}, version: {s}", .{ options.name, options.version });
 
     // std.log.info("ret = {d}", .{ret});
 
@@ -55,6 +55,6 @@ pub fn main(init: std.process.Init) !void {
 
     std.log.info("Serial ports found: ", .{});
     for (serialPorts.items) |portInfo| {
-        std.log.info("/dev/{s}\n", .{portInfo.device});
+        std.log.info("{s}\n", .{portInfo.device});
     }
 }

@@ -6,7 +6,7 @@ const DIGCF_PRESENT: c_ulong = 0x0002;
 const DICS_FLAG_GLOBAL: c_ulong = 0x0001;
 const DIREG_DEV: c_ulong = 0x0001;
 const KEY_READ: c_ulong = 0x20019;
-const INVALID_HANDLE_VALUE: ?*anyopaque = @ptrFromInt(std.math.maxInt(usize));
+const INVALID_HANDLE_VALUE = std.os.windows.INVALID_HANDLE_VALUE;
 
 fn wideToUtf8(allocator: std.mem.Allocator, wide: []const u16) ![]u8 {
     const len = std.mem.indexOfScalar(u16, wide, 0) orelse wide.len;

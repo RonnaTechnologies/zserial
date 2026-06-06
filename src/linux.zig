@@ -31,11 +31,14 @@ pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(serial
 
             const productStr = try readFile(io, productPath, &buf);
             const productId = try std.fmt.parseInt(u16, productStr, 16);
-            const portInfo = serial.PortInfo{ .location = parentPath, .device = port, .pid = productId, .vid = vendorId, .manufacturer = "", .product = "", .serialNumber = "" };
+
+            const device = try std.fmt.allocPrint(allocator, "/dev/{s}", .{port});
+
+            const portInfo = serial.PortInfo{ .location = parentPath, .device = device, .pid = productId, .vid = vendorId, .manufacturer = "", .product = "", .serialNumber = "" };
 
             try serialPorts.append(allocator, portInfo);
 
-            std.log.info("port = /dev/{s}, path = {s}, vendor Id = 0x{x}, product Id = 0x{x}", .{ port, parentPath, vendorId, productId });
+            // std.log.info("port = /dev/{s}, path = {s}, vendor Id = 0x{x}, product Id = 0x{x}", .{ port, parentPath, vendorId, productId });
         }
     }
 

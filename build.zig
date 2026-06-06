@@ -98,13 +98,20 @@ pub fn build(b: *std.Build) !void {
     b.installArtifact(linuxTestsExe);
 
     // docs
-    const emit_docs = b.addSystemCommand(&.{
-        "zig",
-        "build-obj",
-        "-femit-docs=zig-out/docs",
-        "-fno-emit-bin",
-        "src/main.zig",
+    const docs_obj = b.addObject(.{
+        .name = "zserial",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/docs.zig"),
+            .target = b.graph.host, // use host, same as your test
+            .optimize = .Debug,
+        }),
     });
 
-    b.step("docs", "Generate docs").dependOn(&emit_docs.step);
+    const install_docs = b.addInstallDirectory(.{
+        .source_dir = docs_obj.getEmittedDocs(),
+        .install_dir = .prefix,
+        .install_subdir = "docs",
+    });
+
+    b.step("docs", "Generate docs").dependOn(&install_docs.step);
 }

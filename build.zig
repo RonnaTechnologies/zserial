@@ -92,6 +92,11 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(exe);
 
+    // tests
+
+    const linuxTestsExe = b.addTest(.{ .name = "linux_unit_tests", .root_module = b.createModule(.{ .root_source_file = b.path("src/linux.zig"), .target = b.graph.host }) });
+    b.installArtifact(linuxTestsExe);
+
     // docs
     const emit_docs = b.addSystemCommand(&.{
         "zig",

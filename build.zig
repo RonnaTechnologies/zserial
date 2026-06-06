@@ -1,7 +1,7 @@
 const std = @import("std");
 const pkg = @import("build.zig.zon");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -9,21 +9,23 @@ pub fn build(b: *std.Build) void {
     options.addOption([]const u8, "version", pkg.version);
     options.addOption([]const u8, "name", @tagName(pkg.name));
 
+    var it = std.mem.splitScalar(u8, pkg.version, '.');
+    const major = try std.fmt.parseInt(u32, it.next() orelse return error.InvalidVersion, 10);
+    const minor = try std.fmt.parseInt(u32, it.next() orelse return error.InvalidVersion, 10);
+    const patch = try std.fmt.parseInt(u32, it.next() orelse return error.InvalidVersion, 10);
+
     const osxcross_sdk = b.option(
         []const u8,
         "osxcross-sdk",
         "path to macOS SDK",
     );
 
-    const exe = b.addExecutable(.{
-        .name = "zserial",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
-            .target = target,
-            .optimize = optimize,
-            .link_libc = true,
-        }),
-    });
+    const exe = b.addExecutable(.{ .name = "zserial", .root_module = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    }), .version = .{ .major = major, .minor = minor, .patch = patch } });
 
     const effective_os = target.query.os_tag orelse .linux;
 

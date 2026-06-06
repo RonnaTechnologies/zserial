@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const pkg = @import("build.zig.zon");
 
 pub fn build(b: *std.Build) !void {
@@ -32,6 +33,8 @@ pub fn build(b: *std.Build) !void {
     // executable (example program -- linux only)
     const exe = b.addExecutable(.{
         .name = "zserial",
+        .use_lld = if (getOS(target) == .linux) true else null,
+        .use_llvm = if (getOS(target) == .linux) true else null,
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
@@ -118,6 +121,18 @@ pub fn build(b: *std.Build) !void {
     b.step("docs", "Generate docs").dependOn(&install_docs.step);
 }
 
+fn getOS(target: anytype) std.Target.Os.Tag {
+    const effectiveOS = blk: {
+        const tag = if (@TypeOf(target) == std.Build.ResolvedTarget)
+            target.query.os_tag
+        else
+            target.query.os_tag;
+        break :blk tag orelse builtin.os.tag;
+    };
+
+    return effectiveOS;
+}
+
 fn addPlatformImports(
     b: *std.Build,
     mod: *std.Build.Module,
@@ -125,13 +140,7 @@ fn addPlatformImports(
     optimize: std.builtin.OptimizeMode,
     osxcross_sdk: ?[]const u8,
 ) void {
-    const effectiveOS = blk: {
-        const tag = if (@TypeOf(target) == std.Build.ResolvedTarget)
-            target.query.os_tag
-        else
-            target.query.os_tag;
-        break :blk tag orelse @import("builtin").os.tag;
-    };
+    const effectiveOS = getOS(target);
 
     switch (effectiveOS) {
         .macos => {

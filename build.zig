@@ -13,9 +13,9 @@ pub fn build(b: *std.Build) !void {
 
     // parse version
     var it = std.mem.splitScalar(u8, pkg.version, '.');
-    _ = try std.fmt.parseInt(u32, it.next() orelse return error.InvalidVersion, 10);
-    _ = try std.fmt.parseInt(u32, it.next() orelse return error.InvalidVersion, 10);
-    _ = try std.fmt.parseInt(u32, it.next() orelse return error.InvalidVersion, 10);
+    const major = try std.fmt.parseInt(u32, it.next() orelse return error.InvalidVersion, 10);
+    const minor = try std.fmt.parseInt(u32, it.next() orelse return error.InvalidVersion, 10);
+    const patch = try std.fmt.parseInt(u32, it.next() orelse return error.InvalidVersion, 10);
 
     const osxcross_sdk = b.option([]const u8, "osxcross-sdk", "path to macOS SDK");
 
@@ -47,6 +47,26 @@ pub fn build(b: *std.Build) !void {
     runCmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| runCmd.addArgs(args);
     b.step("run", "Run the example").dependOn(&runCmd.step);
+
+    // C shared library
+    const clib = b.addLibrary(.{
+        .name = "zserial",
+        .linkage = .dynamic,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/c_api.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
+        .version = .{ .major = major, .minor = minor, .patch = patch },
+    });
+    clib.root_module.addOptions("buildOptions", options);
+    addPlatformImports(b, clib.root_module, target, optimize, osxcross_sdk);
+
+    b.installArtifact(clib);
+    b.installFile("src/zserial.h", "include/zserial.h");
+
+    b.step("clib", "Build the C shared library").dependOn(&clib.step);
 
     // tests
     const tests = b.addTest(.{

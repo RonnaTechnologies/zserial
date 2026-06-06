@@ -16,29 +16,45 @@ pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(serial
         const realPath = try std.Io.Dir.cwd().realPathFileAlloc(io, devicePath, allocator);
         const parentPath = std.fs.path.dirname(realPath) orelse "/";
 
-        const vendorPath = try std.fmt.allocPrint(allocator, "{s}/idVendor", .{parentPath});
-        const productPath = try std.fmt.allocPrint(allocator, "{s}/idProduct", .{parentPath});
-        const hasVendor = fileExists(io, vendorPath);
-        const hasProduct = fileExists(io, productPath);
+        const vendorIdPath = try std.fmt.allocPrint(allocator, "{s}/idVendor", .{parentPath});
+        const productIdPath = try std.fmt.allocPrint(allocator, "{s}/idProduct", .{parentPath});
+        const hasVendor = fileExists(io, vendorIdPath);
+        const hasProduct = fileExists(io, productIdPath);
 
         // std.debug.print("path = {s}, has vendor: {}\n", .{ parentPath, hasVendor });
 
         if (hasVendor and hasProduct) {
-            var buf: [16]u8 = undefined;
-
-            const vendorStr = try readFile(io, vendorPath, &buf);
+            const vendorStr = try readFile(io, allocator, vendorIdPath, 16);
             const vendorId = try std.fmt.parseInt(u16, vendorStr, 16);
 
-            const productStr = try readFile(io, productPath, &buf);
+            const productStr = try readFile(io, allocator, productIdPath, 16);
             const productId = try std.fmt.parseInt(u16, productStr, 16);
 
             const device = try std.fmt.allocPrint(allocator, "/dev/{s}", .{port});
 
-            const portInfo = serial.PortInfo{ .location = parentPath, .device = device, .pid = productId, .vid = vendorId, .manufacturer = "", .product = "", .serialNumber = "" };
+            const manufacturerPath = try std.fmt.allocPrint(allocator, "{s}/manufacturer", .{parentPath});
+            const manufacturer = if (fileExists(io, manufacturerPath)) readFile(io, allocator, manufacturerPath, 32) catch "" else "";
+
+            const productPath = try std.fmt.allocPrint(allocator, "{s}/product", .{parentPath});
+            const product = if (fileExists(io, productPath)) readFile(io, allocator, productPath, 32) catch "" else "";
+
+            const serialPath = try std.fmt.allocPrint(allocator, "{s}/serial", .{parentPath});
+            const serialNb = if (fileExists(io, serialPath)) readFile(io, allocator, serialPath, 32) catch "" else "";
+
+            const portInfo = serial.PortInfo{ .location = parentPath, .device = device, .pid = productId, .vid = vendorId, .manufacturer = manufacturer, .product = product, .serialNumber = serialNb };
 
             try serialPorts.append(allocator, portInfo);
 
-            // std.log.info("port = /dev/{s}, path = {s}, vendor Id = 0x{x}, product Id = 0x{x}", .{ port, parentPath, vendorId, productId });
+            std.log.debug(
+                \\found device: 
+                \\       device = {s}
+                \\       product = "{s}""
+                \\       manufacturer = "{s}"
+                \\       serial = "{s}"
+                \\       vendor Id = 0x{x} 
+                \\       product Id = 0x{x}
+                \\       location = {s}
+            , portInfo);
         }
     }
 
@@ -86,17 +102,18 @@ fn listSerialPorts(
     return ports;
 }
 
-fn readFile(io: std.Io, path: []u8, buffer: []u8) ![]const u8 {
+fn readFile(io: std.Io, allocator: std.mem.Allocator, path: []u8, comptime maxLen: usize) ![]u8 {
+    var buffer: [maxLen]u8 = undefined;
+
     const file = try std.Io.Dir.cwd().openFile(io, path, .{});
     defer file.close(io);
 
-    var reader = file.reader(io, buffer);
+    var reader = file.reader(io, &buffer);
+    const n = try reader.interface.readSliceShort(&buffer);
 
-    const n = try reader.interface.readSliceShort(buffer);
+    const trimmed = std.mem.trim(u8, buffer[0..n], " \t\r\n");
 
-    const vendorStr = std.mem.trim(u8, buffer[0..n], " \t\r\n");
-
-    return vendorStr;
+    return allocator.dupe(u8, trimmed);
 }
 
 test "valid port name" {

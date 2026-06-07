@@ -1,7 +1,25 @@
 const std = @import("std");
-const serial = @import("common.zig");
+pub const port = @import("common.zig");
 
 const c = @import("c");
+
+pub const Port = struct {
+    file: ?std.Io.File = null,
+    io: std.Io,
+
+    pub fn init(io: std.Io) Port {
+        return .{ .io = io };
+    }
+
+    pub fn open(
+        _: *Port,
+        _: port.PortInfo,
+    ) !void {}
+
+    pub fn close(_: *Port) void {}
+
+    pub fn configure(_: *Port, _: port.Options) !void {}
+};
 
 const IO_NAME_SIZE: usize = 128;
 
@@ -110,10 +128,10 @@ fn getStringProperty(
 pub fn listPorts(
     _: std.Io,
     allocator: std.mem.Allocator,
-) !std.ArrayList(serial.PortInfo) {
+) !std.ArrayList(port.PortInfo) {
     std.log.info("enumerating macOS serial ports", .{});
 
-    const ports = try std.ArrayList(serial.PortInfo).initCapacity(allocator, 4);
+    const ports = try std.ArrayList(port.PortInfo).initCapacity(allocator, 4);
 
     const services = try getIOServicesByType(
         allocator,

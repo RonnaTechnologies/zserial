@@ -17,8 +17,6 @@ pub const Port = struct {
         portInfo: port.PortInfo,
     ) !void {
         self.file = try std.Io.Dir.openFileAbsolute(self.io, portInfo.device, .{ .mode = .read_write });
-
-        std.log.info("handle: {d}", .{self.file.?.handle});
     }
 
     pub fn close(self: *Port) void {
@@ -27,9 +25,34 @@ pub const Port = struct {
         }
     }
 
-    pub fn configure(self: *Port, options: port.Options) !void {
-        var settings = try std.posix.tcgetattr(self.file.?.handle);
-        settings.cflag.PARODD = options.parity == .odd or options.parity == .none;
+    pub fn configure(self: *Port, _: port.Options) !void {
+        var tty = try std.posix.tcgetattr(self.file.?.handle);
+
+        const baudMask = std.posix.speed_t.B115200;
+
+        tty.cflag = @bitCast(@intFromEnum(baudMask));
+
+        tty.ispeed = baudMask;
+        tty.ospeed = baudMask;
+
+        tty.cflag.PARENB = false;
+        tty.cflag.CSTOPB = false;
+        tty.cflag.CSIZE = .CS8;
+        tty.cflag.CRTSCTS = false;
+        tty.cflag.CREAD = true;
+        tty.cflag.CLOCAL = true;
+
+        tty.cc[@intFromEnum(std.os.linux.V.MIN)] = 0;
+        tty.cc[@intFromEnum(std.os.linux.V.TIME)] = 1;
+
+        try std.posix.tcsetattr(self.file.?.handle, .NOW, tty);
+
+        try self.file.?.writeStreamingAll(self.io, "hello");
+
+        var buf: [256]u8 = undefined;
+        var reader = self.file.?.reader(self.io, &buf);
+        const n = try reader.interface.readSliceShort(&buf);
+        std.log.info("Received data: \"{s}\"", .{buf[0..n]});
     }
 };
 

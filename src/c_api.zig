@@ -8,11 +8,10 @@ const PortList = struct {
 };
 
 export fn zserial_list_ports(len: *usize) ?*PortList {
-    const allocator = std.heap.c_allocator;
-
-    var ioThreaded = std.Io.Threaded.init(allocator, .{});
+    var ioThreaded: std.Io.Threaded = .init_single_threaded;
     const io = ioThreaded.io();
 
+    const allocator = std.heap.c_allocator;
     const list = allocator.create(PortList) catch return null;
     errdefer allocator.destroy(list);
 

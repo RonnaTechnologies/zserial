@@ -1,17 +1,45 @@
 const std = @import("std");
-const serial = @import("common.zig");
-
-pub const rootPath: []const u8 = "/sys/class/tty";
+pub const port = @import("common.zig");
 
 const allowedDevices = [_][]const u8{ "ttyS", "ttyUSB", "ttyXRUSB", "ttyACM", "ttyAMA", "rfcomm", "ttyAP", "ttyGS" };
+const rootPath: []const u8 = "/sys/class/tty";
 
-pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(serial.PortInfo) {
+pub const Port = struct {
+    file: ?std.Io.File = null,
+    io: std.Io,
+
+    pub fn init(io: std.Io) Port {
+        return .{ .io = io };
+    }
+
+    pub fn open(
+        self: *Port,
+        portInfo: port.PortInfo,
+    ) !void {
+        self.file = try std.Io.Dir.openFileAbsolute(self.io, portInfo.device, .{ .mode = .read_write });
+
+        std.log.info("handle: {d}", .{self.file.?.handle});
+    }
+
+    pub fn close(self: *Port) void {
+        if (self.file) |f| {
+            f.close(self.io);
+        }
+    }
+
+    pub fn configure(self: *Port, options: port.Options) !void {
+        var settings = try std.posix.tcgetattr(self.file.?.handle);
+        settings.cflag.PARODD = options.parity == .odd or options.parity == .none;
+    }
+};
+
+pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(port.PortInfo) {
     const ports = try listSerialPorts(io, allocator, rootPath);
 
-    var serialPorts = try std.ArrayList(serial.PortInfo).initCapacity(allocator, 2);
+    var serialPorts = try std.ArrayList(port.PortInfo).initCapacity(allocator, 2);
 
-    for (ports.items) |port| {
-        const devicePath = try std.fmt.allocPrint(allocator, "{s}/{s}/device", .{ rootPath, port });
+    for (ports.items) |p| {
+        const devicePath = try std.fmt.allocPrint(allocator, "{s}/{s}/device", .{ rootPath, p });
 
         const realPath = try std.Io.Dir.cwd().realPathFileAlloc(io, devicePath, allocator);
         const parentPath = std.fs.path.dirname(realPath) orelse "/";
@@ -30,7 +58,7 @@ pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(serial
             const productStr = try readFile(io, allocator, productIdPath, 16);
             const productId = try std.fmt.parseInt(u16, productStr, 16);
 
-            const device = try std.fmt.allocPrint(allocator, "/dev/{s}", .{port});
+            const device = try std.fmt.allocPrint(allocator, "/dev/{s}", .{p});
 
             const manufacturerPath = try std.fmt.allocPrint(allocator, "{s}/manufacturer", .{parentPath});
             const manufacturer = if (fileExists(io, manufacturerPath)) readFile(io, allocator, manufacturerPath, 32) catch "" else "";
@@ -41,7 +69,7 @@ pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(serial
             const serialPath = try std.fmt.allocPrint(allocator, "{s}/serial", .{parentPath});
             const serialNb = if (fileExists(io, serialPath)) readFile(io, allocator, serialPath, 32) catch "" else "";
 
-            const portInfo = serial.PortInfo{ .location = parentPath, .device = device, .pid = productId, .vid = vendorId, .manufacturer = manufacturer, .product = product, .serialNumber = serialNb };
+            const portInfo = port.PortInfo{ .location = parentPath, .device = device, .pid = productId, .vid = vendorId, .manufacturer = manufacturer, .product = product, .serialNumber = serialNb };
 
             try serialPorts.append(allocator, portInfo);
 

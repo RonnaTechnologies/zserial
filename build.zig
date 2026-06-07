@@ -68,6 +68,7 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(clib);
     b.installFile("src/zserial.h", "include/zserial.h");
+    b.installFile("src/zserial.hpp", "include/zserial.hpp");
 
     b.step("clib", "Build the C shared library").dependOn(&clib.step);
 

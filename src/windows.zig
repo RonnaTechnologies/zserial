@@ -1,6 +1,24 @@
 const std = @import("std");
-const serial = @import("common.zig");
+pub const port = @import("common.zig");
 const c = @import("c");
+
+pub const Port = struct {
+    file: ?std.Io.File = null,
+    io: std.Io,
+
+    pub fn init(io: std.Io) Port {
+        return .{ .io = io };
+    }
+
+    pub fn open(
+        _: *Port,
+        _: port.PortInfo,
+    ) !void {}
+
+    pub fn close(_: *Port) void {}
+
+    pub fn configure(_: *Port, _: port.Options) !void {}
+};
 
 const DIGCF_PRESENT: c_ulong = 0x0002;
 const DICS_FLAG_GLOBAL: c_ulong = 0x0001;
@@ -15,7 +33,7 @@ fn wideToUtf8(allocator: std.mem.Allocator, wide: []const u16) ![]u8 {
 
 fn enumGuids(
     allocator: std.mem.Allocator,
-    ports: *std.ArrayList(serial.PortInfo),
+    ports: *std.ArrayList(port.PortInfo),
     guids: []c.GUID,
 ) !void {
     for (guids) |*guidPtr| {
@@ -71,7 +89,7 @@ fn enumGuids(
                 continue;
             }
 
-            const portInfo = serial.PortInfo{ .device = portName, .location = "", .manufacturer = "", .pid = 0, .product = "", .serialNumber = "", .vid = 0 };
+            const portInfo = port.PortInfo{ .device = portName, .location = "", .manufacturer = "", .pid = 0, .product = "", .serialNumber = "", .vid = 0 };
 
             try ports.append(allocator, portInfo);
         }
@@ -81,7 +99,7 @@ fn enumGuids(
 pub fn listPorts(
     _: std.Io,
     allocator: std.mem.Allocator,
-) !std.ArrayList(serial.PortInfo) {
+) !std.ArrayList(port.PortInfo) {
     var portsGuids: [8]c.GUID = undefined;
     var portsCount: c_ulong = 0;
     _ = c.SetupDiClassGuidsFromNameW(std.unicode.utf8ToUtf16LeStringLiteral("Ports"), &portsGuids, 8, &portsCount);
@@ -90,7 +108,7 @@ pub fn listPorts(
     var modemCount: c_ulong = 0;
     _ = c.SetupDiClassGuidsFromNameW(std.unicode.utf8ToUtf16LeStringLiteral("Modem"), &modemGuids, 8, &modemCount);
 
-    var serialPorts = try std.ArrayList(serial.PortInfo).initCapacity(allocator, 2);
+    var serialPorts = try std.ArrayList(port.PortInfo).initCapacity(allocator, 2);
 
     try enumGuids(allocator, &serialPorts, portsGuids[0..portsCount]);
     try enumGuids(allocator, &serialPorts, modemGuids[0..modemCount]);

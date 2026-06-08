@@ -25,28 +25,45 @@ pub const Port = struct {
         }
     }
 
+    fn enumToMap(comptime keyType: type, comptime enumType: type, comptime enumToKey: fn ([]const u8) anyerror!keyType) !std.hash_map.AutoHashMap(keyType, std.meta.Tag(enumType)) {
+        const allocator = std.heap.smp_allocator;
+        var values = std.hash_map.AutoHashMap(keyType, std.meta.Tag(enumType)).init(allocator);
+        errdefer values.deinit();
+
+        inline for (std.meta.fields(enumType)) |field| {
+            const key = try enumToKey(field.name);
+            try values.put(key, field.value);
+        }
+        return values;
+    }
+
     pub fn configure(self: *Port, options: port.Options) !void {
         var tty = try std.posix.tcgetattr(self.file.?.handle);
 
-        const allocator = std.heap.smp_allocator;
+        var baudRatesMap = try enumToMap(u32, std.posix.speed_t, struct {
+            fn call(name: []const u8) !u32 {
+                const trimmed = std.mem.trimStart(u8, name, "B");
+                return std.fmt.parseInt(u32, trimmed, 10);
+            }
+        }.call);
+        defer baudRatesMap.deinit();
 
-        var baudRates = std.hash_map.AutoHashMap(u32, @TypeOf(@intFromEnum(std.posix.speed_t.B9600))).init(allocator);
-        defer baudRates.deinit();
+        var dataBitsMap = try enumToMap(u8, std.posix.CSIZE, struct {
+            fn call(name: []const u8) !u8 {
+                const trimmed = std.mem.trimStart(u8, name, "CS");
+                return std.fmt.parseInt(u8, trimmed, 10);
+            }
+        }.call);
+        defer dataBitsMap.deinit();
 
-        inline for (std.meta.fields(std.posix.speed_t)) |baudRate| {
-            const brName = std.mem.trimStart(u8, baudRate.name, "B");
-            const brValue = try std.fmt.parseInt(u32, brName, 10);
-            try baudRates.put(brValue, baudRate.value);
-        }
-
-        const baudRate: @TypeOf(tty.ispeed) = @enumFromInt(baudRates.get(options.baudRate).?);
-
+        const baudRate: @TypeOf(tty.ispeed) = @enumFromInt(baudRatesMap.get(options.baudRate).?);
+        const dataBits: std.posix.CSIZE = @enumFromInt(dataBitsMap.get(@intFromEnum(options.dataBits)).?);
         tty.ispeed = baudRate;
         tty.ospeed = baudRate;
 
-        tty.cflag.PARENB = false; // no parity
-        tty.cflag.CSTOPB = false; // 1 stop bit
-        tty.cflag.CSIZE = .CS8; // 8 data bits
+        tty.cflag.PARENB = options.parity != .none;
+        tty.cflag.CSTOPB = options.stopBits != .one;
+        tty.cflag.CSIZE = dataBits;
 
         tty.cflag.CREAD = true;
         tty.cflag.CLOCAL = true;

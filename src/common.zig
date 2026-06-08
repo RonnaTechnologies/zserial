@@ -23,6 +23,6 @@ pub const Options = struct {
     nonBlocking: bool = false,
 };
 
-pub const DataBits = enum { five, six, seven, eight };
+pub const DataBits = enum(u8) { five = 5, six = 6, seven = 7, eight = 8 };
 pub const StopBits = enum { one, two };
 pub const Parity = enum { none, odd, even };

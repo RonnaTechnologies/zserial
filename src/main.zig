@@ -19,7 +19,7 @@ pub fn main(init: std.process.Init) !void {
         try port.open(portInfo);
         defer port.close();
 
-        const options = serial.port.Options{ .baudRate = 115200, .parity = .even };
+        const options = serial.port.Options{ .baudRate = 115200, .dataBits = .seven, .parity = .even };
         try port.configure(options);
     }
 }

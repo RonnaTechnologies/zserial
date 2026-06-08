@@ -25,11 +25,24 @@ pub const Port = struct {
         }
     }
 
-    pub fn configure(self: *Port, _: port.Options) !void {
+    pub fn configure(self: *Port, options: port.Options) !void {
         var tty = try std.posix.tcgetattr(self.file.?.handle);
 
-        tty.ispeed = std.posix.speed_t.B115200;
-        tty.ospeed = std.posix.speed_t.B115200;
+        const allocator = std.heap.smp_allocator;
+
+        var baudRates = std.hash_map.AutoHashMap(u32, @TypeOf(@intFromEnum(std.posix.speed_t.B9600))).init(allocator);
+        defer baudRates.deinit();
+
+        inline for (std.meta.fields(std.posix.speed_t)) |baudRate| {
+            const brName = std.mem.trimStart(u8, baudRate.name, "B");
+            const brValue = try std.fmt.parseInt(u32, brName, 10);
+            try baudRates.put(brValue, baudRate.value);
+        }
+
+        const baudRate: @TypeOf(tty.ispeed) = @enumFromInt(baudRates.get(options.baudRate).?);
+
+        tty.ispeed = baudRate;
+        tty.ospeed = baudRate;
 
         tty.cflag.PARENB = false; // no parity
         tty.cflag.CSTOPB = false; // 1 stop bit

@@ -101,12 +101,12 @@ pub fn build(b: *std.Build) !void {
     _ = docsFiles.addCopyFile(b.path("src/linux.zig"), "linux.zig");
     _ = docsFiles.addCopyFile(b.path("src/macos.zig"), "macos.zig");
     _ = docsFiles.addCopyFile(b.path("src/windows.zig"), "windows.zig");
-    _ = docsFiles.addCopyFile(b.path("src/common.zig"), "common.zig"); // if exists
+    _ = docsFiles.addCopyFile(b.path("src/common.zig"), "common.zig");
 
     const docsObj = b.addObject(.{
         .name = "zserial",
         .root_module = b.createModule(.{
-            .root_source_file = docsRoot, // ← LazyPath returned by addCopyFile
+            .root_source_file = docsRoot,
             .target = b.graph.host,
             .optimize = .Debug,
             .link_libc = true,
@@ -123,15 +123,7 @@ pub fn build(b: *std.Build) !void {
 }
 
 fn getOS(target: anytype) std.Target.Os.Tag {
-    const effectiveOS = blk: {
-        const tag = if (@TypeOf(target) == std.Build.ResolvedTarget)
-            target.query.os_tag
-        else
-            target.query.os_tag;
-        break :blk tag orelse builtin.os.tag;
-    };
-
-    return effectiveOS;
+    return target.query.os_tag orelse builtin.os.tag;
 }
 
 fn addPlatformImports(

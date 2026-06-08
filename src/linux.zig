@@ -28,19 +28,40 @@ pub const Port = struct {
     pub fn configure(self: *Port, _: port.Options) !void {
         var tty = try std.posix.tcgetattr(self.file.?.handle);
 
-        const baudMask = std.posix.speed_t.B115200;
+        tty.ispeed = std.posix.speed_t.B115200;
+        tty.ospeed = std.posix.speed_t.B115200;
 
-        tty.cflag = @bitCast(@intFromEnum(baudMask));
+        tty.cflag.PARENB = false; // no parity
+        tty.cflag.CSTOPB = false; // 1 stop bit
+        tty.cflag.CSIZE = .CS8; // 8 data bits
 
-        tty.ispeed = baudMask;
-        tty.ospeed = baudMask;
-
-        tty.cflag.PARENB = false;
-        tty.cflag.CSTOPB = false;
-        tty.cflag.CSIZE = .CS8;
-        tty.cflag.CRTSCTS = false;
         tty.cflag.CREAD = true;
         tty.cflag.CLOCAL = true;
+
+        // Raw mode (cfmakeraw)
+
+        tty.iflag.IGNBRK = false;
+        tty.iflag.BRKINT = false;
+        tty.iflag.PARMRK = false;
+        tty.iflag.ISTRIP = false;
+        tty.iflag.INLCR = false;
+        tty.iflag.IGNCR = false;
+        tty.iflag.ICRNL = false;
+
+        tty.iflag.IXON = false;
+        tty.iflag.IXOFF = false;
+        tty.iflag.IXANY = false;
+
+        tty.oflag.OPOST = false;
+
+        tty.lflag.ECHO = false;
+        tty.lflag.ECHONL = false;
+        tty.lflag.ICANON = false;
+        tty.lflag.ISIG = false;
+        tty.lflag.IEXTEN = false;
+
+        // disable hardware flow control
+        tty.cflag.CRTSCTS = false;
 
         tty.cc[@intFromEnum(std.os.linux.V.MIN)] = 0;
         tty.cc[@intFromEnum(std.os.linux.V.TIME)] = 1;

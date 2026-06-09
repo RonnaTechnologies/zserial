@@ -4,6 +4,8 @@ pub const port = @import("common.zig");
 const allowedDevices = [_][]const u8{ "ttyS", "ttyUSB", "ttyXRUSB", "ttyACM", "ttyAMA", "rfcomm", "ttyAP", "ttyGS" };
 const rootPath: []const u8 = "/sys/class/tty";
 
+const CBAUD: u32 = 0x100F;
+
 pub const Port = struct {
     file: ?std.Io.File = null,
     io: std.Io,
@@ -58,11 +60,29 @@ pub const Port = struct {
 
         const baudRate: @TypeOf(tty.ispeed) = @enumFromInt(baudRatesMap.get(options.baudRate).?);
         const dataBits: std.posix.CSIZE = @enumFromInt(dataBitsMap.get(@intFromEnum(options.dataBits)).?);
-        tty.ispeed = baudRate;
-        tty.ospeed = baudRate;
 
+        const baudRateInt = @intFromEnum(baudRate);
+
+        var cflag_int: u32 = @bitCast(tty.cflag);
+
+        // ospeed
+        cflag_int &= ~CBAUD;
+        cflag_int |= baudRateInt;
+        tty.cflag = @bitCast(cflag_int);
+
+        // ispeed
+        cflag_int &= ~(CBAUD << 16);
+        cflag_int |= (baudRateInt << 16);
+        tty.cflag = @bitCast(cflag_int);
+
+        // parity
         tty.cflag.PARENB = options.parity != .none;
+        tty.cflag.PARODD = options.parity == .odd;
+
+        // stop bit
         tty.cflag.CSTOPB = options.stopBits != .one;
+
+        // data bits
         tty.cflag.CSIZE = dataBits;
 
         tty.cflag.CREAD = true;

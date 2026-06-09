@@ -21,5 +21,8 @@ pub fn main(init: std.process.Init) !void {
 
         const options = serial.port.Options{ .baudRate = 115200, .dataBits = .eight, .parity = .none, .stopBits = .one };
         try port.configure(options);
+        try port.write("test");
+        const response = try port.read(arenaAllocator);
+        std.log.info("Received: {s}", .{response});
     }
 }

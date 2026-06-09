@@ -120,13 +120,17 @@ pub const Port = struct {
         tty.cc[@intFromEnum(std.os.linux.V.TIME)] = 1;
 
         try std.posix.tcsetattr(self.file.?.handle, .NOW, tty);
+    }
 
-        try self.file.?.writeStreamingAll(self.io, "hello");
+    pub fn write(self: *Port, data: []const u8) !void {
+        try self.file.?.writeStreamingAll(self.io, data);
+    }
 
-        var buf: [256]u8 = undefined;
-        var reader = self.file.?.reader(self.io, &buf);
-        const n = try reader.interface.readSliceShort(&buf);
-        std.log.info("Received data: \"{s}\"", .{buf[0..n]});
+    pub fn read(self: *Port, allocator: std.mem.Allocator) ![]u8 {
+        var read_buf: [4096]u8 = undefined;
+        var reader = self.file.?.reader(self.io, &read_buf);
+        const buffer = try reader.interface.allocRemaining(allocator, .unlimited);
+        return buffer;
     }
 };
 

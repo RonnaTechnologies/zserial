@@ -27,8 +27,7 @@ pub const Port = struct {
         }
     }
 
-    fn enumToMap(comptime keyType: type, comptime enumType: type, comptime enumToKey: fn ([]const u8) anyerror!keyType) !std.hash_map.AutoHashMap(keyType, std.meta.Tag(enumType)) {
-        const allocator = std.heap.smp_allocator;
+    fn enumToMap(allocator: std.mem.Allocator, comptime keyType: type, comptime enumType: type, comptime enumToKey: fn ([]const u8) anyerror!keyType) !std.hash_map.AutoHashMap(keyType, std.meta.Tag(enumType)) {
         var values = std.hash_map.AutoHashMap(keyType, std.meta.Tag(enumType)).init(allocator);
         errdefer values.deinit();
 
@@ -42,21 +41,25 @@ pub const Port = struct {
     pub fn configure(self: *Port, options: port.Options) !void {
         var tty = try std.posix.tcgetattr(self.file.?.handle);
 
-        var baudRatesMap = try enumToMap(u32, std.posix.speed_t, struct {
+        const allocator = std.heap.smp_allocator;
+        var arena = std.heap.ArenaAllocator.init(allocator);
+        defer arena.deinit();
+
+        const arenaAllocator = arena.allocator();
+
+        var baudRatesMap = try enumToMap(arenaAllocator, u32, std.posix.speed_t, struct {
             fn call(name: []const u8) !u32 {
                 const trimmed = std.mem.trimStart(u8, name, "B");
                 return std.fmt.parseInt(u32, trimmed, 10);
             }
         }.call);
-        defer baudRatesMap.deinit();
 
-        var dataBitsMap = try enumToMap(u8, std.posix.CSIZE, struct {
+        var dataBitsMap = try enumToMap(arenaAllocator, u8, std.posix.CSIZE, struct {
             fn call(name: []const u8) !u8 {
                 const trimmed = std.mem.trimStart(u8, name, "CS");
                 return std.fmt.parseInt(u8, trimmed, 10);
             }
         }.call);
-        defer dataBitsMap.deinit();
 
         const baudRate: @TypeOf(tty.ispeed) = @enumFromInt(baudRatesMap.get(options.baudRate).?);
         const dataBits: std.posix.CSIZE = @enumFromInt(dataBitsMap.get(@intFromEnum(options.dataBits)).?);

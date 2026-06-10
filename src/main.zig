@@ -11,6 +11,8 @@ pub fn main(init: std.process.Init) !void {
 
     const serialPorts = try serial.listPorts(io, arenaAllocator);
 
+    serial.listBaudRates();
+
     std.log.info("Serial ports found:", .{});
     for (serialPorts.items) |portInfo| {
         std.log.info("{s}\n", .{portInfo.device});

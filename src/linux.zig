@@ -27,17 +27,6 @@ pub const Port = struct {
         }
     }
 
-    fn enumToMap(allocator: std.mem.Allocator, comptime keyType: type, comptime enumType: type, comptime enumToKey: fn ([]const u8) anyerror!keyType) !std.hash_map.AutoHashMap(keyType, std.meta.Tag(enumType)) {
-        var values = std.hash_map.AutoHashMap(keyType, std.meta.Tag(enumType)).init(allocator);
-        errdefer values.deinit();
-
-        inline for (std.meta.fields(enumType)) |field| {
-            const key = try enumToKey(field.name);
-            try values.put(key, field.value);
-        }
-        return values;
-    }
-
     pub fn configure(self: *Port, options: port.Options) !void {
         var tty = try std.posix.tcgetattr(self.file.?.handle);
 
@@ -133,6 +122,12 @@ pub const Port = struct {
         return buffer;
     }
 };
+
+pub fn listBaudRates() void {
+    inline for (std.meta.fieldNames(std.posix.speed_t)) |name| {
+        std.log.info("{s}", .{name});
+    }
+}
 
 pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(port.PortInfo) {
     const ports = try listSerialPorts(io, allocator, rootPath);
@@ -243,6 +238,17 @@ fn readFile(io: std.Io, allocator: std.mem.Allocator, path: []u8, comptime maxLe
     const trimmed = std.mem.trim(u8, buffer[0..n], " \t\r\n");
 
     return allocator.dupe(u8, trimmed);
+}
+
+fn enumToMap(allocator: std.mem.Allocator, comptime keyType: type, comptime enumType: type, comptime enumToKey: fn ([]const u8) anyerror!keyType) !std.hash_map.AutoHashMap(keyType, std.meta.Tag(enumType)) {
+    var values = std.hash_map.AutoHashMap(keyType, std.meta.Tag(enumType)).init(allocator);
+    errdefer values.deinit();
+
+    inline for (std.meta.fields(enumType)) |field| {
+        const key = try enumToKey(field.name);
+        try values.put(key, field.value);
+    }
+    return values;
 }
 
 test "valid port name" {

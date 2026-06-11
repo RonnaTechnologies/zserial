@@ -11,7 +11,7 @@ pub fn main(init: std.process.Init) !void {
 
     const serialPorts = try serial.listPorts(io, arenaAllocator);
 
-    serial.listBaudRates();
+    // const baudRates = comptime serial.baudRates;
 
     std.log.info("Serial ports found:", .{});
     for (serialPorts.items) |portInfo| {
@@ -21,7 +21,7 @@ pub fn main(init: std.process.Init) !void {
         try port.open(portInfo);
         defer port.close();
 
-        const options = serial.port.Options{ .baudRate = 115200, .dataBits = .eight, .parity = .none, .stopBits = .one };
+        const options = serial.port.Options{ .baudRate = 115_200, .dataBits = .eight, .parity = .none, .stopBits = .one };
         try port.configure(options);
         try port.write("test");
         const response = try port.read(arenaAllocator);

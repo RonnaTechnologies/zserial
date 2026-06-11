@@ -154,8 +154,6 @@ pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(port.P
         const hasVendor = fileExists(io, vendorIdPath);
         const hasProduct = fileExists(io, productIdPath);
 
-        // std.debug.print("path = {s}, has vendor: {}\n", .{ parentPath, hasVendor });
-
         if (hasVendor and hasProduct) {
             const vendorStr = try readFile(io, allocator, vendorIdPath, 16);
             const vendorId = try std.fmt.parseInt(u16, vendorStr, 16);

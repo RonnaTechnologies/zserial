@@ -6,6 +6,18 @@ const rootPath: []const u8 = "/sys/class/tty";
 
 const CBAUD: u32 = 0x100F;
 
+pub const baudRates: []const u32 = b: {
+    const fieldNames = std.meta.fieldNames(std.posix.speed_t);
+    var rates: [fieldNames.len]u32 = undefined;
+    for (fieldNames, 0..) |name, i| {
+        const trimmed = std.mem.trimStart(u8, name, "B");
+        rates[i] = parseDecimal(trimmed);
+    }
+    const computed = rates;
+    break :b &computed;
+};
+
+
 pub const Port = struct {
     file: ?std.Io.File = null,
     io: std.Io,
@@ -123,12 +135,6 @@ pub const Port = struct {
     }
 };
 
-pub fn listBaudRates() void {
-    inline for (std.meta.fieldNames(std.posix.speed_t)) |name| {
-        std.log.info("{s}", .{name});
-    }
-}
-
 pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(port.PortInfo) {
     const ports = try listSerialPorts(io, allocator, rootPath);
 
@@ -238,6 +244,14 @@ fn readFile(io: std.Io, allocator: std.mem.Allocator, path: []u8, comptime maxLe
     const trimmed = std.mem.trim(u8, buffer[0..n], " \t\r\n");
 
     return allocator.dupe(u8, trimmed);
+}
+
+fn parseDecimal(comptime s: []const u8) u32 {
+    var result: u32 = 0;
+    for (s) |c| {
+        result = result * 10 + (c - '0');
+    }
+    return result;
 }
 
 fn enumToMap(allocator: std.mem.Allocator, comptime keyType: type, comptime enumType: type, comptime enumToKey: fn ([]const u8) anyerror!keyType) !std.hash_map.AutoHashMap(keyType, std.meta.Tag(enumType)) {

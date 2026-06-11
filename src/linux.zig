@@ -17,6 +17,9 @@ pub const baudRates: []const u32 = b: {
     break :b &computed;
 };
 
+pub fn isValidBaudRate(baudRate: u32) bool {
+    return std.mem.indexOfScalar(u32, baudRates, baudRate) != null;
+}
 
 pub const Port = struct {
     file: ?std.Io.File = null,

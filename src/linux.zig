@@ -92,6 +92,7 @@ pub const Port = struct {
         // data bits
         tty.cflag.CSIZE = dataBits;
 
+        // modem-specific signal lines
         tty.cflag.CREAD = true;
         tty.cflag.CLOCAL = true;
 
@@ -117,8 +118,8 @@ pub const Port = struct {
         tty.lflag.ISIG = false;
         tty.lflag.IEXTEN = false;
 
-        // disable hardware flow control
-        tty.cflag.CRTSCTS = false;
+        // Hardware flow control
+        tty.cflag.CRTSCTS = options.hardwareFlowControl;
 
         tty.cc[@intFromEnum(std.os.linux.V.MIN)] = 0;
         tty.cc[@intFromEnum(std.os.linux.V.TIME)] = 1;

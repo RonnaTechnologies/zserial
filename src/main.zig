@@ -11,9 +11,18 @@ pub fn main(init: std.process.Init) !void {
 
     const serialPorts = try serial.listPorts(io, arenaAllocator);
 
-    // const baudRates = comptime serial.baudRates;
+    // Valid baud rates are comptime
+    const baudRates = comptime serial.baudRates;
+    _ = baudRates;
+
+    const baudRate: u32 = 115_200;
+
+    if (!serial.isValidBaudRate(baudRate)) {
+        return error.invalidBaudRate;
+    }
 
     std.log.info("Serial ports found:", .{});
+
     for (serialPorts.items) |portInfo| {
         std.log.info("{s}\n", .{portInfo.device});
 
@@ -21,10 +30,12 @@ pub fn main(init: std.process.Init) !void {
         try port.open(portInfo);
         defer port.close();
 
-        const options = serial.port.Options{ .baudRate = 115_200, .dataBits = .eight, .parity = .none, .stopBits = .one };
+        const options = serial.port.Options{ .baudRate = baudRate, .dataBits = .eight, .parity = .none, .stopBits = .one, .hardwareFlowControl = false };
         try port.configure(options);
+
         try port.write("test");
         const response = try port.read(arenaAllocator);
+
         std.log.info("Received: {s}", .{response});
     }
 }

@@ -19,8 +19,8 @@ pub const Options = struct {
     stopBits: StopBits = .one,
     // Parity
     parity: Parity = .none,
-    // Non-blocking mode
-    nonBlocking: bool = false,
+    // Hardware flow control
+    hardwareFlowControl: bool = false,
 };
 
 pub const DataBits = enum(u8) { five = 5, six = 6, seven = 7, eight = 8 };

@@ -34,8 +34,18 @@ pub fn main(init: std.process.Init) !void {
         try port.configure(options);
 
         try port.write("test");
-        const response = try port.read(arenaAllocator);
 
-        std.log.info("Received: {s}", .{response});
+        // const readStrategy: serial.port.ReadStrategy = .{ .blockingMinTimeout = .{ .nBytes = 16, .timeout_ms = 1000 } };
+        const readStrategy: serial.port.ReadStrategy = .nonBlocking;
+
+        // try std.Io.sleep(io, .fromMilliseconds(1), .awake);
+
+        if (port.read(arenaAllocator, readStrategy)) |data| {
+            if (data.len > 0) {
+                std.log.info("Received: {s} \n[{d}]", .{ data, data.len });
+            }
+        } else |err| {
+            std.log.info("Error reading from serial device: {s}", .{@errorName(err)});
+        }
     }
 }

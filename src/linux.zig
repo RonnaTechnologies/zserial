@@ -142,7 +142,19 @@ pub const Port = struct {
         var bytesRead: usize = 0;
 
         switch (strategy) {
-            .nonBlocking => {},
+            .nonBlocking => {
+                const n = try std.posix.read(fd, buffer[bytesRead..]);
+                if (n < 0) {
+                    const err = std.posix.errno(n);
+                    if (err == .AGAIN or err == .WOULDBLOCK) {
+                        return allocator.dupe(u8, "");
+                    } else {
+                        return std.posix.unexpectedErrno(err);
+                    }
+                }
+
+                bytesRead = n;
+            },
             .blockingAnyTimeout => {},
             .blockingMinTimeout => |s| {
                 if (s.timeout_ms != null) {

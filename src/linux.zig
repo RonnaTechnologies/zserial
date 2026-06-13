@@ -24,13 +24,14 @@ pub fn isValidBaudRate(baudRate: u32) bool {
 pub const Port = struct {
     file: ?std.Io.File = null,
     io: std.Io,
+    epollHandle: ?i32 = null,
 
     pub fn init(io: std.Io) Port {
         return .{ .io = io };
     }
 
     pub fn open(
-        self: *Port,
+        self: *@This(),
         portInfo: port.PortInfo,
     ) !void {
         self.file = try std.Io.Dir.openFileAbsolute(self.io, portInfo.device, .{ .mode = .read_write });
@@ -40,9 +41,12 @@ pub const Port = struct {
         if (self.file) |f| {
             f.close(self.io);
         }
+        if (self.epollHandle) |epollFd| {
+            _ = std.os.linux.close(@intCast(epollFd));
+        }
     }
 
-    pub fn configure(self: *Port, options: port.Options) !void {
+    pub fn configure(self: *@This(), options: port.Options) !void {
         var tty = try std.posix.tcgetattr(self.file.?.handle);
 
         const allocator = std.heap.smp_allocator;
@@ -122,20 +126,75 @@ pub const Port = struct {
         tty.cflag.CRTSCTS = options.hardwareFlowControl;
 
         tty.cc[@intFromEnum(std.os.linux.V.MIN)] = 0;
-        tty.cc[@intFromEnum(std.os.linux.V.TIME)] = 1;
+        tty.cc[@intFromEnum(std.os.linux.V.TIME)] = 0;
 
         try std.posix.tcsetattr(self.file.?.handle, .NOW, tty);
+        // try std.os.linux.fcntl(fd: i32, cmd: i32, arg: usize)
     }
 
-    pub fn write(self: *Port, data: []const u8) !void {
+    pub fn write(self: *@This(), data: []const u8) !void {
         try self.file.?.writeStreamingAll(self.io, data);
     }
 
-    pub fn read(self: *Port, allocator: std.mem.Allocator) ![]u8 {
-        var read_buf: [4096]u8 = undefined;
-        var reader = self.file.?.reader(self.io, &read_buf);
-        const buffer = try reader.interface.allocRemaining(allocator, .unlimited);
-        return buffer;
+
+    fn poll(self: *@This(), timeout_ms: ?u32) !bool {
+        var events: [1]std.os.linux.epoll_event = undefined;
+
+        if (self.epollHandle == null) {
+            const epfd = std.os.linux.epoll_create1(0);
+            if (std.os.linux.errno(epfd) != .SUCCESS) {
+                return error.EpollCreate;
+            }
+
+            self.epollHandle = @intCast(epfd);
+
+            var ev: std.os.linux.epoll_event = .{
+                .events = std.os.linux.EPOLL.IN,
+                .data = .{ .fd = self.file.?.handle },
+            };
+
+            const ctl_rc = std.os.linux.epoll_ctl(
+                self.epollHandle.?,
+                std.os.linux.EPOLL.CTL_ADD,
+                self.file.?.handle,
+                &ev,
+            );
+
+            if (std.os.linux.errno(ctl_rc) != .SUCCESS) {
+                return error.EpollCtl;
+            }
+        }
+
+        const timeout: i32 = if (timeout_ms) |t| @intCast(t) else -1;
+
+        const n = std.os.linux.epoll_wait(
+            self.epollHandle.?,
+            &events,
+            1,
+            timeout,
+        );
+
+        if (n == 0) {
+            return false;
+        }
+
+        if (n < 0) {
+            return error.EpollWait;
+        }
+
+        const ev = events[0].events;
+
+        if ((ev & std.os.linux.EPOLL.IN) != 0) {
+            return true;
+        }
+
+        if ((ev & std.os.linux.EPOLL.ERR) != 0 or
+            (ev & std.os.linux.EPOLL.HUP) != 0)
+        {
+            return error.EpollWait;
+        }
+
+        return false;
     }
 };
 

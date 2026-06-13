@@ -136,6 +136,45 @@ pub const Port = struct {
         try self.file.?.writeStreamingAll(self.io, data);
     }
 
+    pub fn read(self: *@This(), allocator: std.mem.Allocator, strategy: port.ReadStrategy) ![]u8 {
+        const fd = self.file.?.handle;
+        var buffer: [4096]u8 = undefined;
+        var bytesRead: usize = 0;
+
+        switch (strategy) {
+            .nonBlocking => {},
+            .blockingAnyTimeout => {},
+            .blockingMinTimeout => |s| {
+                if (s.timeout_ms != null) {
+                    const startTime = std.Io.Timestamp.now(self.io, .awake);
+                    const endTime = std.Io.Timestamp.addDuration(startTime, std.Io.Duration.fromMilliseconds(s.timeout_ms.?));
+                    while (bytesRead < s.nBytes) {
+                        const remainingTime = endTime.nanoseconds - std.Io.Timestamp.now(self.io, .awake).nanoseconds;
+
+                        if (remainingTime <= 0) {
+                            return error.Timeout;
+                        }
+
+                        if (self.poll(s.timeout_ms.?)) |_| {
+                            const n = try std.posix.read(fd, buffer[bytesRead..]);
+                            if (n < 0) {
+                                return std.posix.unexpectedErrno(std.posix.errno(n));
+                            }
+                            bytesRead += n;
+                        } else |err| return err;
+
+                        if (bytesRead < s.nBytes) {
+                            if (bytesRead == 0) {
+                                return error.Timeout;
+                            }
+                        }
+                    }
+                }
+            },
+        }
+
+        return allocator.dupe(u8, buffer[0..bytesRead]);
+    }
 
     fn poll(self: *@This(), timeout_ms: ?u32) !bool {
         var events: [1]std.os.linux.epoll_event = undefined;

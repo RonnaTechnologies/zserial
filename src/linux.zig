@@ -155,7 +155,15 @@ pub const Port = struct {
 
                 bytesRead = n;
             },
-            .blockingAnyTimeout => {},
+            .blockingAnyTimeout => |s| {
+                if (try self.poll(s.timeout_ms)) {
+                    const n = try std.posix.read(fd, buffer[bytesRead..]);
+                    if (n < 0) return std.posix.unexpectedErrno(std.posix.errno(n));
+                    bytesRead = n;
+                } else {
+                    return error.Timeout;
+                }
+            },
             .blockingMinTimeout => |s| {
                 if (s.timeout_ms != null) {
                     const startTime = std.Io.Timestamp.now(self.io, .awake);

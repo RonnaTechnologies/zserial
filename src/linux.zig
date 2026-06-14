@@ -391,6 +391,18 @@ fn enumToMap(allocator: std.mem.Allocator, comptime keyType: type, comptime enum
     return values;
 }
 
+test "baud rates exist" {
+    try std.testing.expect(baudRates.len > 0);
+}
+
+test "valid baud rate" {
+    try std.testing.expect(isValidBaudRate(9_600));
+}
+
+test "invalid baud rate" {
+    try std.testing.expect(!isValidBaudRate(1_234));
+}
+
 test "valid port name" {
     const isValid = isValidPort(u8, "ttyACM0", &allowedDevices);
     try std.testing.expect(isValid);

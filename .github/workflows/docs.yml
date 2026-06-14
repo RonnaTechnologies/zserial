@@ -1,0 +1,33 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Zig 0.16
+        uses: mlugg/setup-zig@v1
+        with:
+          version: "0.16.0"
+
+      - name: Build docs
+        run: zig build docs
+        
+      - name: Deploy to docs branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./zig-out/docs
+          publish_branch: docs
+          force_orphan: true

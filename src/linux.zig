@@ -266,15 +266,21 @@ pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(port.P
     for (ports.items) |p| {
         const devicePath = try std.fmt.allocPrint(allocator, "{s}/{s}/device", .{ rootPath, p });
 
-        const realPath = try std.Io.Dir.cwd().realPathFileAlloc(io, devicePath, allocator);
-        const parentPath = std.fs.path.dirname(realPath) orelse "/";
+        const realdevicePath = std.Io.Dir.cwd().realPathFileAlloc(io, devicePath, allocator) catch continue;
 
-        const vendorIdPath = try std.fmt.allocPrint(allocator, "{s}/idVendor", .{parentPath});
-        const productIdPath = try std.fmt.allocPrint(allocator, "{s}/idProduct", .{parentPath});
-        const hasVendor = fileExists(io, vendorIdPath);
-        const hasProduct = fileExists(io, productIdPath);
+        const subSystemPath = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ devicePath, "subsystem" });
+        const realSubSystemPath = std.Io.Dir.cwd().realPathFileAlloc(io, subSystemPath, allocator) catch continue;
 
-        if (hasVendor and hasProduct) {
+        const subsystem = std.fs.path.basename(realSubSystemPath);
+
+        const usbInterfacePath = if (std.mem.eql(u8, subsystem, "usb-serial")) std.fs.path.dirname(realdevicePath) else if (std.mem.eql(u8, subsystem, "usb")) realdevicePath else null;
+
+        if (usbInterfacePath != null) {
+            const usbDevicePath = std.fs.path.dirname(usbInterfacePath.?) orelse continue;
+
+            const vendorIdPath = try std.fmt.allocPrint(allocator, "{s}/idVendor", .{usbDevicePath});
+            const productIdPath = try std.fmt.allocPrint(allocator, "{s}/idProduct", .{usbDevicePath});
+
             const vendorStr = try readFile(io, allocator, vendorIdPath, 16);
             const vendorId = try std.fmt.parseInt(u16, vendorStr, 16);
 
@@ -283,16 +289,16 @@ pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(port.P
 
             const device = try std.fmt.allocPrint(allocator, "/dev/{s}", .{p});
 
-            const manufacturerPath = try std.fmt.allocPrint(allocator, "{s}/manufacturer", .{parentPath});
+            const manufacturerPath = try std.fmt.allocPrint(allocator, "{s}/manufacturer", .{usbDevicePath});
             const manufacturer = if (fileExists(io, manufacturerPath)) readFile(io, allocator, manufacturerPath, 32) catch "" else "";
 
-            const productPath = try std.fmt.allocPrint(allocator, "{s}/product", .{parentPath});
+            const productPath = try std.fmt.allocPrint(allocator, "{s}/product", .{usbDevicePath});
             const product = if (fileExists(io, productPath)) readFile(io, allocator, productPath, 32) catch "" else "";
 
-            const serialPath = try std.fmt.allocPrint(allocator, "{s}/serial", .{parentPath});
+            const serialPath = try std.fmt.allocPrint(allocator, "{s}/serial", .{usbDevicePath});
             const serialNb = if (fileExists(io, serialPath)) readFile(io, allocator, serialPath, 32) catch "" else "";
 
-            const portInfo = port.PortInfo{ .location = parentPath, .device = device, .pid = productId, .vid = vendorId, .manufacturer = manufacturer, .product = product, .serialNumber = serialNb };
+            const portInfo = port.PortInfo{ .location = usbDevicePath, .device = device, .pid = productId, .vid = vendorId, .manufacturer = manufacturer, .product = product, .serialNumber = serialNb };
 
             try serialPorts.append(allocator, portInfo);
 
@@ -308,7 +314,6 @@ pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(port.P
             , portInfo);
         }
     }
-
     return serialPorts;
 }
 

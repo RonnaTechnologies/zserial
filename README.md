@@ -1,13 +1,22 @@
 # zserial [![CI](https://github.com/RonnaTechnologies/zserial/actions/workflows/ci.yml/badge.svg)](https://github.com/RonnaTechnologies/zserial/actions/workflows/ci.yml) [![Docs](https://github.com/RonnaTechnologies/zserial/actions/workflows/docs.yml/badge.svg)](https://github.com/RonnaTechnologies/zserial/actions/workflows/docs.yml)
 
-**zserial** is a cross-platform serial port library for [Zig](https://ziglang.org/) 0.16. It provides a native Zig API for opening, configuring, and communicating over serial ports, as well as a C shared library and a C++ wrapper.
+**zserial** is a cross-platform serial port library for [Zig](https://ziglang.org/) 0.16. It provides a native Zig API for opening, configuring, and communicating over serial ports.A C shared library and a C++ wrapper are also included.
 
 ## Features
 
-- Cross-platform: Linux, macOS, and Windows.
-- Native Zig module usable.
-- C shared library (`libzserial`) with C++ wrapper.
-- Platform-native backends (IOKit on macOS, Win32 APIs on Windows, POSIX on Linux).
+- Cross-platform Zig, C, and C++ library: Linux, macOS, and Windows
+- Versatile serial port configuration:
+  - Baud rate
+  - Data bits: 5, 6, 7, 8
+  - Stop bits: 1 or 2
+  - Parity: none, odd, even
+  - Hardware control flow
+- Serial port read strategies:
+  - Non blocking
+  - Blocking with minimum number of bytes + optional timeout
+  - Blocking with no minimum number of bytes + mandatory timeout
+- C shared library (`libzserial`) with C++ wrapper
+- Tests included
 - Build-time documentation generation.
 
 ## Platform Support
@@ -16,7 +25,7 @@
 |----------|--------|
 | Linux    | ✅ Supported |
 | macOS    | ✅ Supported (cross-compile via osxcross) |
-| Windows  | ✅ Supported (cross-compile ready) |
+| Windows  | ✅ Supported |
 
 ## Requirements
 
@@ -176,4 +185,4 @@ g++ -std=c++23 -o my_app -I./zig-out/include -L./zig-out/lib my_app.cpp -lzseria
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT License: see [LICENSE](LICENSE) for details.

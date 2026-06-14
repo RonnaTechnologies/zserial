@@ -35,8 +35,8 @@ pub fn main(init: std.process.Init) !void {
 
         try port.write("test");
 
-        // const readStrategy: serial.port.ReadStrategy = .{ .blockingMinTimeout = .{ .nBytes = 16, .timeout_ms = 1000 } };
-        const readStrategy: serial.port.ReadStrategy = .nonBlocking;
+        const readStrategy: serial.port.ReadStrategy = .{ .blockingMinTimeout = .{ .nBytes = 16, .timeout_ms = 1000 } };
+        // const readStrategy: serial.port.ReadStrategy = .nonBlocking;
 
         // try std.Io.sleep(io, .fromMilliseconds(1), .awake);
 

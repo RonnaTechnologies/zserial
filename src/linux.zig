@@ -101,7 +101,6 @@ pub const Port = struct {
         tty.cflag.CLOCAL = true;
 
         // Raw mode (cfmakeraw)
-
         tty.iflag.IGNBRK = false;
         tty.iflag.BRKINT = false;
         tty.iflag.PARMRK = false;
@@ -165,28 +164,30 @@ pub const Port = struct {
                 }
             },
             .blockingMinTimeout => |s| {
-                if (s.timeout_ms != null) {
-                    const startTime = std.Io.Timestamp.now(self.io, .awake);
-                    const endTime = std.Io.Timestamp.addDuration(startTime, std.Io.Duration.fromMilliseconds(s.timeout_ms.?));
-                    while (bytesRead < s.nBytes) {
+                const startTime = std.Io.Timestamp.now(self.io, .awake);
+
+                while (bytesRead < s.nBytes) {
+                    if (s.timeout_ms != null) {
+                        const endTime = std.Io.Timestamp.addDuration(startTime, std.Io.Duration.fromMilliseconds(s.timeout_ms.?));
+
                         const remainingTime = endTime.nanoseconds - std.Io.Timestamp.now(self.io, .awake).nanoseconds;
 
                         if (remainingTime <= 0) {
                             return error.Timeout;
                         }
+                    }
 
-                        if (self.poll(s.timeout_ms.?)) |_| {
-                            const n = try std.posix.read(fd, buffer[bytesRead..]);
-                            if (n < 0) {
-                                return std.posix.unexpectedErrno(std.posix.errno(n));
-                            }
-                            bytesRead += n;
-                        } else |err| return err;
+                    if (self.poll(s.timeout_ms)) |_| {
+                        const n = try std.posix.read(fd, buffer[bytesRead..]);
+                        if (n < 0) {
+                            return std.posix.unexpectedErrno(std.posix.errno(n));
+                        }
+                        bytesRead += n;
+                    } else |err| return err;
 
-                        if (bytesRead < s.nBytes) {
-                            if (bytesRead == 0) {
-                                return error.Timeout;
-                            }
+                    if (bytesRead < s.nBytes) {
+                        if (bytesRead == 0) {
+                            return error.Timeout;
                         }
                     }
                 }

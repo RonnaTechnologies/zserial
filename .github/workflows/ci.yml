@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Tests (Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Zig
+        id: cache-zig
+        uses: actions/cache@v4
+        with:
+          path: zig-x86_64-linux-0.16.0
+          key: zig-0.16.0-linux-x86_64
+
+      - name: Download Zig 0.16.0
+        if: steps.cache-zig.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz
+          tar -xf zig-x86_64-linux-0.16.0.tar.xz
+
+      - name: Add Zig to PATH
+        run: echo "$GITHUB_WORKSPACE/zig-x86_64-linux-0.16.0" >> $GITHUB_PATH
+
+      - name: Run tests
+        run: zig build test --summary all

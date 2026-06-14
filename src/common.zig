@@ -1,12 +1,19 @@
 const std = @import("std");
 
 pub const PortInfo = struct {
+    /// Device path
     device: []const u8,
+    /// Product name
     product: []const u8,
+    /// Manufacturer
     manufacturer: []const u8,
+    /// Serial number
     serialNumber: []const u8,
+    /// Vendor id
     vid: u16,
+    /// Product id
     pid: u16,
+    /// Device system location
     location: []const u8,
 };
 

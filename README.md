@@ -1,4 +1,4 @@
-# zserial [![Docs](https://github.com/RonnaTechnologies/zserial/actions/workflows/docs.yml/badge.svg)](https://github.com/RonnaTechnologies/zserial/actions/workflows/docs.yml)
+# zserial [![CI](https://github.com/RonnaTechnologies/zserial/actions/workflows/ci.yml/badge.svg)](https://github.com/RonnaTechnologies/zserial/actions/workflows/ci.yml) [![Docs](https://github.com/RonnaTechnologies/zserial/actions/workflows/docs.yml/badge.svg)](https://github.com/RonnaTechnologies/zserial/actions/workflows/docs.yml)
 
 **zserial** is a cross-platform serial port library for [Zig](https://ziglang.org/) 0.16. It provides a native Zig API for opening, configuring, and communicating over serial ports, as well as a C shared library and a C++ wrapper.
 

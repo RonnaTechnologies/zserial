@@ -1,6 +1,28 @@
 const std = @import("std");
-pub const port = @import("common.zig");
 const c = @import("c");
+
+pub const port = @import("common.zig");
+
+pub const baudRates: []const u32 = &.{
+    110,
+    300,
+    600,
+    1200,
+    2400,
+    4800,
+    9600,
+    14400,
+    19200,
+    38400,
+    57600,
+    115200,
+    128000,
+    256000,
+};
+
+pub fn isValidBaudRate(baudRate: u32) bool {
+    return std.mem.indexOfScalar(u32, baudRates, baudRate) != null;
+}
 
 pub const Port = struct {
     file: ?std.Io.File = null,
@@ -18,7 +40,40 @@ pub const Port = struct {
     pub fn close(_: *Port) void {}
 
     pub fn configure(_: *Port, _: port.Options) !void {}
+
+    pub fn write(self: *@This(), data: []const u8) !void {
+        _ = self;
+        _ = data;
+    }
+
+    pub fn read(self: *@This(), allocator: std.mem.Allocator, strategy: port.ReadStrategy) ![]u8 {
+        _ = self;
+        _ = allocator;
+        _ = strategy;
+
+        return error.TODO;
+    }
 };
+
+pub fn listPorts(
+    _: std.Io,
+    allocator: std.mem.Allocator,
+) !std.ArrayList(port.PortInfo) {
+    var portsGuids: [8]c.GUID = undefined;
+    var portsCount: c_ulong = 0;
+    _ = c.SetupDiClassGuidsFromNameW(std.unicode.utf8ToUtf16LeStringLiteral("Ports"), &portsGuids, 8, &portsCount);
+
+    var modemGuids: [8]c.GUID = undefined;
+    var modemCount: c_ulong = 0;
+    _ = c.SetupDiClassGuidsFromNameW(std.unicode.utf8ToUtf16LeStringLiteral("Modem"), &modemGuids, 8, &modemCount);
+
+    var serialPorts = try std.ArrayList(port.PortInfo).initCapacity(allocator, 2);
+
+    try enumGuids(allocator, &serialPorts, portsGuids[0..portsCount]);
+    try enumGuids(allocator, &serialPorts, modemGuids[0..modemCount]);
+
+    return serialPorts;
+}
 
 const DIGCF_PRESENT: c_ulong = 0x0002;
 const DICS_FLAG_GLOBAL: c_ulong = 0x0001;
@@ -94,24 +149,4 @@ fn enumGuids(
             try ports.append(allocator, portInfo);
         }
     }
-}
-
-pub fn listPorts(
-    _: std.Io,
-    allocator: std.mem.Allocator,
-) !std.ArrayList(port.PortInfo) {
-    var portsGuids: [8]c.GUID = undefined;
-    var portsCount: c_ulong = 0;
-    _ = c.SetupDiClassGuidsFromNameW(std.unicode.utf8ToUtf16LeStringLiteral("Ports"), &portsGuids, 8, &portsCount);
-
-    var modemGuids: [8]c.GUID = undefined;
-    var modemCount: c_ulong = 0;
-    _ = c.SetupDiClassGuidsFromNameW(std.unicode.utf8ToUtf16LeStringLiteral("Modem"), &modemGuids, 8, &modemCount);
-
-    var serialPorts = try std.ArrayList(port.PortInfo).initCapacity(allocator, 2);
-
-    try enumGuids(allocator, &serialPorts, portsGuids[0..portsCount]);
-    try enumGuids(allocator, &serialPorts, modemGuids[0..modemCount]);
-
-    return serialPorts;
 }

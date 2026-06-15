@@ -1,5 +1,23 @@
 const std = @import("std");
 
+pub fn computeTimeoutMs(options: Options, nBytes: u32) u32 {
+    const dataBits: u32 = @intFromEnum(options.dataBits);
+
+    const stopBits: u32 = switch (options.stopBits) {
+        .one => 1,
+        .two => 2,
+    };
+
+    const parity: u32 = switch (options.parity) {
+        .none => 0,
+        .odd, .even => 1,
+    };
+
+    const bitsPerByte = 1 + dataBits + parity + stopBits;
+
+    return (nBytes * bitsPerByte * 1_000) / options.baudRate;
+}
+
 pub const PortInfo = struct {
     /// Device path
     device: []const u8,

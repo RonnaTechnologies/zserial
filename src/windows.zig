@@ -1,6 +1,8 @@
 const std = @import("std");
 const c = @import("c");
 
+const SPDRP_HARDWAREID: c_ulong = 0x0001;
+
 pub const port = @import("common.zig");
 
 pub const baudRates: []const u32 = &.{
@@ -144,9 +146,46 @@ fn enumGuids(
                 continue;
             }
 
-            const portInfo = port.PortInfo{ .device = portName, .location = "", .manufacturer = "", .pid = 0, .product = "", .serialNumber = "", .vid = 0 };
+            var szHardwareId: [250]u16 = undefined;
+            var szHardwareIdStr: []u8 = undefined;
+            if (c.SetupDiGetDeviceInstanceIdW(
+                hdi,
+                &devInfo,
+                @ptrCast(&szHardwareId),
+                szHardwareId.len - 1,
+                null,
+            ) != 0) {
+                if (c.SetupDiGetDeviceRegistryPropertyW(
+                    hdi,
+                    &devInfo,
+                    SPDRP_HARDWAREID,
+                    null,
+                    @ptrCast(&szHardwareId),
+                    @sizeOf(@TypeOf(szHardwareId)) - 2,
+                    null,
+                ) != 0) {
+                    // ERROR
+                }
 
-            try ports.append(allocator, portInfo);
+                szHardwareIdStr = wideToUtf8(allocator, &szHardwareId) catch break;
+                // defer allocator.free(szHardwareIdStr);
+            }
+
+            const info = port.PortInfo{
+                .device = try allocator.dupe(u8, portName),
+                .product = try allocator.dupe(u8, ""),
+                .manufacturer = try allocator.dupe(u8, ""),
+                .serialNumber = try allocator.dupe(u8, ""),
+                .vid = 0,
+                .pid = 0,
+                .location = try allocator.dupe(u8, szHardwareIdStr),
+            };
+
+            if (std.mem.startsWith(u8, szHardwareIdStr, "USB")) {
+                std.log.warn("{s}: {s}", .{ info.device, info.location });
+            }
+
+            _ = ports;
         }
     }
 }

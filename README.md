@@ -17,7 +17,7 @@
   - Blocking with no minimum number of bytes + mandatory timeout
 - C shared library (`libzserial`) with C++ wrapper
 - Tests included
-- Build-time documentation generation.
+- Documentation included
 
 ## Platform Support
 

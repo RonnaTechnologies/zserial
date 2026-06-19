@@ -1,4 +1,5 @@
 const std = @import("std");
+const utils = @import("utils.zig");
 const c = @import("c");
 
 pub const port = @import("common.zig");
@@ -74,12 +75,6 @@ pub fn listPorts(
 
     return serialPorts;
 }
-
-const DIGCF_PRESENT: c_ulong = 0x0002;
-const DICS_FLAG_GLOBAL: c_ulong = 0x0001;
-const DIREG_DEV: c_ulong = 0x0001;
-const KEY_READ: c_ulong = 0x20019;
-const INVALID_HANDLE_VALUE = std.os.windows.INVALID_HANDLE_VALUE;
 
 fn wideToUtf8(allocator: std.mem.Allocator, wide: []const u16) ![]u8 {
     const len = std.mem.indexOfScalar(u16, wide, 0) orelse wide.len;
@@ -179,10 +174,12 @@ fn enumGuids(
                 .location = try allocator.dupe(u8, szHardwareIdStr),
             };
 
-            if (std.mem.startsWith(u8, szHardwareIdStr, "USB")) {
-                try parseUsbHardwareInfo(szHardwareIdStr, &info);
+            std.log.info("{s}", .{szHardwareIdStr});
 
-                std.log.debug("vid = {d}, pid = {d}", .{ info.vid, info.pid });
+            if (std.mem.startsWith(u8, szHardwareIdStr, "USB")) {
+                try utils.parseUsbHardwareInfo(szHardwareIdStr, &info);
+
+                std.log.info("vid = {d}, pid = {d}", .{ info.vid, info.pid });
             }
 
             _ = ports;
@@ -190,19 +187,9 @@ fn enumGuids(
     }
 }
 
-fn parseUsbHardwareInfo(info: []const u8, portInfo: *port.PortInfo) !void {
-    const vidStr = "VID_";
-    const vidOffset = (std.mem.indexOf(u8, info, vidStr) orelse return error.ParseError) + vidStr.len;
-
-    const vid = std.fmt.parseInt(u16, info[vidOffset .. vidOffset + 4], 16) catch return error.ParseError;
-
-    const pidStr = "PID_";
-    const pidOffset = (std.mem.indexOf(u8, info, pidStr) orelse return error.ParseError) + pidStr.len;
-
-    const pid = std.fmt.parseInt(u16, info[pidOffset .. pidOffset + 4], 16) catch return error.ParseErrro;
-
-    portInfo.vid = vid;
-    portInfo.pid = pid;
-}
-
+const DIGCF_PRESENT: c_ulong = 0x0002;
+const DICS_FLAG_GLOBAL: c_ulong = 0x0001;
+const DIREG_DEV: c_ulong = 0x0001;
+const KEY_READ: c_ulong = 0x20019;
+const INVALID_HANDLE_VALUE = std.os.windows.INVALID_HANDLE_VALUE;
 const SPDRP_HARDWAREID: c_ulong = 0x0001;

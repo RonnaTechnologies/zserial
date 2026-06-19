@@ -16,3 +16,13 @@ pub fn parseUsbHardwareInfo(info: []const u8, portInfo: *port.PortInfo) !void {
     portInfo.vid = vid;
     portInfo.pid = pid;
 }
+
+test "windows parse USB hardware info" {
+    var pi: port.PortInfo = undefined;
+    const str: []const u8 = "USB\\VID_0483&PID_5740&REV_0200&MI_00";
+
+    try parseUsbHardwareInfo(str, &pi);
+
+    try std.testing.expect(pi.vid == 0x0483);
+    try std.testing.expect(pi.pid == 0x5740);
+}

@@ -117,6 +117,7 @@ pub fn build(b: *std.Build) !void {
     _ = docsFiles.addCopyFile(b.path("src/macos.zig"), "macos.zig");
     _ = docsFiles.addCopyFile(b.path("src/windows.zig"), "windows.zig");
     _ = docsFiles.addCopyFile(b.path("src/common.zig"), "common.zig");
+    _ = docsFiles.addCopyFile(b.path("src/utils.zig"), "utils.zig");
 
     const docsObj = b.addObject(.{
         .name = "zserial",

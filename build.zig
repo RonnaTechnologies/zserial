@@ -90,6 +90,21 @@ pub fn build(b: *std.Build) !void {
     b.step("test", "Run library tests").dependOn(&runTests.step);
     b.installArtifact(tests);
 
+    // utils tests
+    const utilsTests = b.addTest(.{ .name = "utils_tests", .root_module = b.createModule(.{
+        .root_source_file = b.path("src/utils.zig"),
+        .target = b.graph.host,
+        .optimize = optimize,
+        .link_libc = true,
+    }) });
+
+    const runUtilsTests = b.addRunArtifact(utilsTests);
+
+    utilsTests.root_module.addOptions("buildOptions", options);
+    addPlatformImports(b, utilsTests.root_module, b.graph.host, optimize, null);
+    b.step("utils_tests", "Run utils tests").dependOn(&runUtilsTests.step);
+    b.installArtifact(utilsTests);
+
     // docs
     const docsOptions = b.addOptions();
     docsOptions.addOption([]const u8, "version", pkg.version);

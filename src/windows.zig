@@ -174,10 +174,8 @@ fn enumGuids(
                 .location = try allocator.dupe(u8, szHardwareIdStr),
             };
 
-            std.log.info("{s}", .{szHardwareIdStr});
-
             if (std.mem.startsWith(u8, szHardwareIdStr, "USB")) {
-                try utils.parseUsbHardwareInfo(szHardwareIdStr, &info);
+                try utils.parseUsbHardwareInfo(allocator, szHardwareIdStr, &info);
 
                 std.log.info("vid = {d}, pid = {d}", .{ info.vid, info.pid });
 

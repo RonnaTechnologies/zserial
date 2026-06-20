@@ -180,6 +180,10 @@ fn enumGuids(
                 try utils.parseUsbHardwareInfo(szHardwareIdStr, &info);
 
                 std.log.info("vid = {d}, pid = {d}", .{ info.vid, info.pid });
+
+                const serial = try getParentSerialNumber(allocator, devInfo.DevInst, info.vid, info.pid, 9, null);
+
+                std.log.info("serial = {s}", .{serial.?});
             }
 
             _ = ports;
@@ -187,6 +191,40 @@ fn enumGuids(
     }
 }
 
+fn getParentSerialNumber(
+    allocator: std.mem.Allocator,
+    childDevInst: c_ulong,
+    childVid: u16,
+    childPid: u16,
+    depth: u32,
+    lastSerial: ?[]const u8,
+) !?[]const u8 {
+    _ = childVid;
+    _ = childPid;
+    _ = depth;
+
+    var devInst: c_ulong = undefined;
+
+    const cr = c.CM_Get_Parent(&devInst, childDevInst, 0);
+
+    if (cr != CR_SUCCESS) {
+        return lastSerial;
+    }
+
+    var idBuf: [250]u16 = undefined;
+
+    if (c.CM_Get_Device_IDW(devInst, @ptrCast(&idBuf), idBuf.len - 1, 0) != CR_SUCCESS) {
+        return lastSerial;
+    }
+    const idStr = try wideToUtf8(allocator, &idBuf);
+    defer allocator.free(idStr);
+
+    std.log.info("Device ID: {s}", .{idStr});
+
+    return "";
+}
+
+const CR_SUCCESS: c_long = 0;
 const DIGCF_PRESENT: c_ulong = 0x0002;
 const DICS_FLAG_GLOBAL: c_ulong = 0x0001;
 const DIREG_DEV: c_ulong = 0x0001;

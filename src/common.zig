@@ -33,6 +33,30 @@ pub const PortInfo = struct {
     pid: u16,
     /// Device system location
     location: []const u8,
+    pub fn format(
+        self: *const PortInfo,
+        writer: *std.Io.Writer,
+    ) std.Io.Writer.Error!void {
+        try writer.print(
+            \\PortInfo {{
+            \\  device: "{s}",
+            \\  product: "{s}",
+            \\  manufacturer: "{s}",
+            \\  serialNumber: "{s}",
+            \\  vid: 0x{X:0>4},
+            \\  pid: 0x{X:0>4},
+            \\  location: "{s}"
+            \\}}
+        , .{
+            self.device,
+            self.product,
+            self.manufacturer,
+            self.serialNumber,
+            self.vid,
+            self.pid,
+            self.location,
+        });
+    }
 };
 
 pub const Options = struct {

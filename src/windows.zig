@@ -179,7 +179,7 @@ fn enumGuids(
 
                 std.log.info("vid = {d}, pid = {d}", .{ info.vid, info.pid });
 
-                const serial = try getParentSerialNumber(allocator, devInfo.DevInst, info.vid, info.pid, 9, null);
+                const serial = try getParentSerialNumber(allocator, devInfo.DevInst, info.vid, info.pid, 0, null);
 
                 std.log.info("serial = {s}", .{serial.?});
             }
@@ -197,11 +197,11 @@ fn getParentSerialNumber(
     depth: u32,
     lastSerial: ?[]const u8,
 ) !?[]const u8 {
+    var devInst: c_ulong = undefined;
+
     _ = childVid;
     _ = childPid;
     _ = depth;
-
-    var devInst: c_ulong = undefined;
 
     const cr = c.CM_Get_Parent(&devInst, childDevInst, 0);
 
@@ -217,9 +217,11 @@ fn getParentSerialNumber(
     const idStr = try wideToUtf8(allocator, &idBuf);
     defer allocator.free(idStr);
 
-    std.log.info("Device ID: {s}", .{idStr});
+    var portInfo: port.PortInfo = undefined;
 
-    return "";
+    try utils.parseUsbHardwareInfo(allocator, idStr, &portInfo);
+
+    return portInfo.serialNumber;
 }
 
 const CR_SUCCESS: c_long = 0;

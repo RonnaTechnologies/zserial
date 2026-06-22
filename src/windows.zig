@@ -173,18 +173,45 @@ fn enumGuids(
                 .pid = 0,
                 .location = try allocator.dupe(u8, szHardwareIdStr),
             };
+            errdefer info.deinit(allocator);
 
             if (std.mem.startsWith(u8, szHardwareIdStr, "USB")) {
                 try utils.parseUsbHardwareInfo(allocator, szHardwareIdStr, &info);
 
-                std.log.info("vid = {d}, pid = {d}", .{ info.vid, info.pid });
+                const serial = try getParentSerialNumber(allocator, devInfo.DevInst, null);
 
-                const serial = try getParentSerialNumber(allocator, devInfo.DevInst, info.vid, info.pid, 0, null);
-
-                std.log.info("serial = {s}", .{serial.?});
+                info.serialNumber = try allocator.dupe(u8, serial.?);
             }
 
-            _ = ports;
+            var friendlyBuf: [250]u16 = undefined;
+            if (c.SetupDiGetDeviceRegistryPropertyW(
+                hdi,
+                &devInfo,
+                SPDRP_FRIENDLYNAME,
+                null,
+                @ptrCast(&friendlyBuf),
+                @sizeOf(@TypeOf(friendlyBuf)) - 2,
+                null,
+            ) != 0) {
+                allocator.free(info.product);
+                info.product = try wideToUtf8(allocator, &friendlyBuf);
+            }
+
+            var manufacturerBuf: [250]u16 = undefined;
+            if (c.SetupDiGetDeviceRegistryPropertyW(
+                hdi,
+                &devInfo,
+                SPDRP_MFG,
+                null,
+                @ptrCast(&manufacturerBuf),
+                @sizeOf(@TypeOf(manufacturerBuf)) - 2,
+                null,
+            ) != 0) {
+                allocator.free(info.manufacturer);
+                info.manufacturer = try wideToUtf8(allocator, &manufacturerBuf);
+            }
+
+            try ports.append(allocator, info);
         }
     }
 }
@@ -192,16 +219,9 @@ fn enumGuids(
 fn getParentSerialNumber(
     allocator: std.mem.Allocator,
     childDevInst: c_ulong,
-    childVid: u16,
-    childPid: u16,
-    depth: u32,
     lastSerial: ?[]const u8,
 ) !?[]const u8 {
     var devInst: c_ulong = undefined;
-
-    _ = childVid;
-    _ = childPid;
-    _ = depth;
 
     const cr = c.CM_Get_Parent(&devInst, childDevInst, 0);
 
@@ -231,3 +251,5 @@ const DIREG_DEV: c_ulong = 0x0001;
 const KEY_READ: c_ulong = 0x20019;
 const INVALID_HANDLE_VALUE = std.os.windows.INVALID_HANDLE_VALUE;
 const SPDRP_HARDWAREID: c_ulong = 0x0001;
+const SPDRP_FRIENDLYNAME: c_ulong = 0x000C;
+const SPDRP_MFG: c_ulong = 0x000B;

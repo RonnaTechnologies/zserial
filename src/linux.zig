@@ -299,19 +299,20 @@ pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(port.P
             const serialNb = if (fileExists(io, serialPath)) readFile(io, allocator, serialPath, 32) catch "" else "";
 
             const portInfo = port.PortInfo{ .location = usbDevicePath, .device = device, .pid = productId, .vid = vendorId, .manufacturer = manufacturer, .product = product, .serialNumber = serialNb };
+            errdefer portInfo.deinit(allocator);
 
             try serialPorts.append(allocator, portInfo);
 
-            std.log.debug(
-                \\found device: 
-                \\       device = {s}
-                \\       product = "{s}""
-                \\       manufacturer = "{s}"
-                \\       serial = "{s}"
-                \\       vendor Id = 0x{x} 
-                \\       product Id = 0x{x}
-                \\       location = {s}
-            , portInfo);
+            // std.log.debug(
+            //     \\found device:
+            //     \\       device = {s}
+            //     \\       product = "{s}""
+            //     \\       manufacturer = "{s}"
+            //     \\       serial = "{s}"
+            //     \\       vendor Id = 0x{x}
+            //     \\       product Id = 0x{x}
+            //     \\       location = {s}
+            // , portInfo);
         }
     }
     return serialPorts;

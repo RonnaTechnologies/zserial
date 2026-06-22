@@ -24,7 +24,7 @@ pub fn main(init: std.process.Init) !void {
     std.log.info("Serial ports found:", .{});
 
     for (serialPorts.items) |portInfo| {
-        std.log.info("{s}\n", .{portInfo.device});
+        std.log.info("{f}\n", .{portInfo});
 
         var port: serial.Port = .init(io);
         try port.open(portInfo);

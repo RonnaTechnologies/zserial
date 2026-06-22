@@ -33,6 +33,15 @@ pub const PortInfo = struct {
     pid: u16,
     /// Device system location
     location: []const u8,
+
+    pub fn deinit(self: PortInfo, allocator: std.mem.Allocator) void {
+        allocator.free(self.device);
+        allocator.free(self.product);
+        allocator.free(self.manufacturer);
+        allocator.free(self.serialNumber);
+        allocator.free(self.location);
+    }
+
     pub fn format(
         self: *const PortInfo,
         writer: *std.Io.Writer,

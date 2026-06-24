@@ -21,6 +21,14 @@ pub fn parseUsbHardwareInfo(allocator: std.mem.Allocator, info: []const u8, port
     portInfo.serialNumber = try allocator.dupe(u8, serial);
 }
 
+pub fn parseDecimal(comptime s: []const u8) u32 {
+    var result: u32 = 0;
+    for (s) |c| {
+        result = result * 10 + (c - '0');
+    }
+    return result;
+}
+
 test "windows parse USB info" {
     const str: []const u8 = " USB\\VID_0483&PID_5740\\1234";
     var pi: port.PortInfo = undefined;

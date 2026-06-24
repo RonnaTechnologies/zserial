@@ -1,4 +1,5 @@
 const std = @import("std");
+const utils = @import("utils.zig");
 pub const port = @import("common.zig");
 
 const allowedDevices = [_][]const u8{ "ttyS", "ttyUSB", "ttyXRUSB", "ttyACM", "ttyAMA", "rfcomm", "ttyAP", "ttyGS" };
@@ -11,7 +12,7 @@ pub const baudRates: []const u32 = b: {
     var rates: [fieldNames.len]u32 = undefined;
     for (fieldNames, 0..) |name, i| {
         const trimmed = std.mem.trimStart(u8, name, "B");
-        rates[i] = parseDecimal(trimmed);
+        rates[i] = utils.parseDecimal(trimmed);
     }
     const computed = rates;
     break :b &computed;
@@ -37,7 +38,7 @@ pub const Port = struct {
         self.file = try std.Io.Dir.openFileAbsolute(self.io, portInfo.device, .{ .mode = .read_write });
     }
 
-    pub fn close(self: *Port) void {
+    pub fn close(self: *@This()) void {
         if (self.file) |f| {
             f.close(self.io);
         }
@@ -371,14 +372,6 @@ fn readFile(io: std.Io, allocator: std.mem.Allocator, path: []u8, comptime maxLe
     const trimmed = std.mem.trim(u8, buffer[0..n], " \t\r\n");
 
     return allocator.dupe(u8, trimmed);
-}
-
-fn parseDecimal(comptime s: []const u8) u32 {
-    var result: u32 = 0;
-    for (s) |c| {
-        result = result * 10 + (c - '0');
-    }
-    return result;
 }
 
 fn enumToMap(allocator: std.mem.Allocator, comptime keyType: type, comptime enumType: type, comptime enumToKey: fn ([]const u8) anyerror!keyType) !std.hash_map.AutoHashMap(keyType, std.meta.Tag(enumType)) {

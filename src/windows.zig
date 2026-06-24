@@ -34,13 +34,13 @@ pub const Port = struct {
     }
 
     pub fn open(
-        _: *Port,
+        _: *@This(),
         _: port.PortInfo,
     ) !void {}
 
-    pub fn close(_: *Port) void {}
+    pub fn close(_: *@This()) void {}
 
-    pub fn configure(_: *Port, _: port.Options) !void {}
+    pub fn configure(_: *@This(), _: port.Options) !void {}
 
     pub fn write(self: *@This(), data: []const u8) !void {
         _ = self;

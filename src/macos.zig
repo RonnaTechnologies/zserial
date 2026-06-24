@@ -1,7 +1,23 @@
 const std = @import("std");
+const utils = @import("utils.zig");
 pub const port = @import("common.zig");
 
 const c = @import("c");
+
+pub const baudRates: []const u32 = b: {
+    const fieldNames = std.meta.fieldNames(std.posix.speed_t);
+    var rates: [fieldNames.len]u32 = undefined;
+    for (fieldNames, 0..) |name, i| {
+        const trimmed = std.mem.trimStart(u8, name, "B");
+        rates[i] = utils.parseDecimal(trimmed);
+    }
+    const computed = rates;
+    break :b &computed;
+};
+
+pub fn isValidBaudRate(baudRate: u32) bool {
+    return std.mem.indexOfScalar(u32, baudRates, baudRate) != null;
+}
 
 pub const Port = struct {
     file: ?std.Io.File = null,
@@ -19,6 +35,19 @@ pub const Port = struct {
     pub fn close(_: *Port) void {}
 
     pub fn configure(_: *Port, _: port.Options) !void {}
+
+    pub fn write(self: *@This(), data: []const u8) !void {
+        _ = self;
+        _ = data;
+    }
+
+    pub fn read(self: *@This(), allocator: std.mem.Allocator, strategy: port.ReadStrategy) ![]u8 {
+        _ = self;
+        _ = allocator;
+        _ = strategy;
+
+        return error.TODO;
+    }
 };
 
 const IO_NAME_SIZE: usize = 128;

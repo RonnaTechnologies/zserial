@@ -1,4 +1,5 @@
 const std = @import("std");
+const port = @import("common.zig");
 
 pub fn validate(comptime Impl: type) void {
     comptime {
@@ -6,6 +7,8 @@ pub fn validate(comptime Impl: type) void {
 
         requireDecl(Impl, "baudRates", ctx ++ ": missing `baudRates`");
         requireDecl(Impl, "isValidBaudRate", ctx ++ ": missing `isValidBaudRate`");
+
+        checkSignature(Impl.isValidBaudRate, .{u32}, bool, ctx ++ ".isValidBaudRate");
 
         requireDecl(Impl, "Port", ctx ++ ": missing `Port`");
 
@@ -21,7 +24,8 @@ pub fn validate(comptime Impl: type) void {
         requireDecl(Port, "write", ctx ++ ".Port: missing `write`");
         requireDecl(Port, "read", ctx ++ ".Port: missing `read`");
 
-        checkParams(Port.init, .{std.Io}, ctx ++ ".Port." ++ "init");
+        checkSignature(Port.init, .{std.Io}, Port, ctx ++ ".Port." ++ "init");
+        checkSignature(Port.open, .{ *Port, port.PortInfo }, anyerror!void, ctx ++ ".Port." ++ "open");
     }
 }
 
@@ -29,7 +33,7 @@ fn requireDecl(comptime T: type, comptime name: []const u8, comptime msg: []cons
     if (!@hasDecl(T, name)) @compileError(msg);
 }
 
-fn checkParams(comptime func: anytype, comptime expected: anytype, comptime fName: []const u8) void {
+fn checkSignature(comptime func: anytype, comptime expected: anytype, comptime expectedRet: anytype, comptime fName: []const u8) void {
     const fnInfo = @typeInfo(@TypeOf(func));
     if (fnInfo != .@"fn") {
         @compileError(fName ++ " is not a function");
@@ -56,6 +60,29 @@ fn checkParams(comptime func: anytype, comptime expected: anytype, comptime fNam
                 "{s}: param[{d}] => expected `{s}`, found `{s}`",
                 .{ fName, i, @typeName(ExpectedField), @typeName(actualField) },
             ));
+        }
+    }
+
+    const ret = fnInfo.@"fn".return_type orelse @compileError(fName ++ ": missing return type");
+
+    if (@typeInfo(expectedRet) == .error_union) {
+        const payload = @typeInfo(expectedRet).error_union.payload;
+        const retInfo = @typeInfo(ret);
+        if (retInfo != .error_union) {
+            @compileError(
+                fName ++ ": expected an error-union return type (!" ++ @typeName(payload) ++ "), found `" ++ @typeName(ret) ++ "`",
+            );
+        }
+        if (retInfo.error_union.payload != payload) {
+            @compileError(
+                fName ++ ": error-union payload => expected `" ++ @typeName(payload) ++ "`, found `" ++ @typeName(retInfo.error_union.payload) ++ "`",
+            );
+        }
+    } else {
+        if (ret != expectedRet) {
+            @compileError(
+                fName ++ ": return type => expected `" ++ @typeName(expectedRet) ++ "`, found `" ++ @typeName(ret) ++ "`",
+            );
         }
     }
 }

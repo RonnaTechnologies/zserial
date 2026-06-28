@@ -1,6 +1,7 @@
 const std = @import("std");
 const utils = @import("utils.zig");
 const c = @import("c");
+const windows = std.os.windows;
 
 pub const port = @import("common.zig");
 
@@ -26,7 +27,8 @@ pub fn isValidBaudRate(baudRate: u32) bool {
 }
 
 pub const Port = struct {
-    file: ?std.Io.File = null,
+    handle: ?windows.HANDLE = null,
+    iocpHandle: ?windows.HANDLE = null,
     io: std.Io,
 
     pub fn init(io: std.Io) Port {
@@ -34,11 +36,40 @@ pub const Port = struct {
     }
 
     pub fn open(
-        _: *@This(),
-        _: port.PortInfo,
-    ) !void {}
+        self: *@This(),
+        portInfo: port.PortInfo,
+    ) !void {
+        var wideBuf: [260]u16 = undefined;
+        const wideLen = try std.unicode.utf8ToUtf16Le(&wideBuf, portInfo.device);
+        if (wideLen >= wideBuf.len) return error.PathTooLong;
+        wideBuf[wideLen] = 0;
+        const widePath: [*:0]const u16 = @ptrCast(&wideBuf);
 
-    pub fn close(_: *@This()) void {}
+        self.handle = c.CreateFileW(
+            widePath,
+            GENERIC_READ | GENERIC_WRITE,
+            0,
+            null,
+            OPEN_EXISTING,
+            FILE_FLAG_OVERLAPPED,
+            null,
+        );
+        if (self.handle == windows.INVALID_HANDLE_VALUE) {
+            const err: windows.Win32Error = @enumFromInt(c.GetLastError());
+            return windows.unexpectedError(err);
+        }
+    }
+
+    pub fn close(self: *@This()) void {
+        if (self.iocpHandle) |h| {
+            _ = c.CloseHandle(h);
+            self.iocpHandle = null;
+        }
+        if (self.handle) |h| {
+            _ = c.CloseHandle(h);
+            self.handle = null;
+        }
+    }
 
     pub fn configure(_: *@This(), _: port.Options) !void {}
 
@@ -249,7 +280,12 @@ const DIGCF_PRESENT: c_ulong = 0x0002;
 const DICS_FLAG_GLOBAL: c_ulong = 0x0001;
 const DIREG_DEV: c_ulong = 0x0001;
 const KEY_READ: c_ulong = 0x20019;
-const INVALID_HANDLE_VALUE = std.os.windows.INVALID_HANDLE_VALUE;
+const INVALID_HANDLE_VALUE = windows.INVALID_HANDLE_VALUE;
 const SPDRP_HARDWAREID: c_ulong = 0x0001;
 const SPDRP_FRIENDLYNAME: c_ulong = 0x000C;
 const SPDRP_MFG: c_ulong = 0x000B;
+
+const GENERIC_READ: windows.DWORD = 0x80000000;
+const GENERIC_WRITE: windows.DWORD = 0x40000000;
+const OPEN_EXISTING: windows.DWORD = 3;
+const FILE_FLAG_OVERLAPPED: windows.DWORD = 0x40000000;

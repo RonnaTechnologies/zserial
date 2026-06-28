@@ -70,3 +70,16 @@ LONG WINAPI CM_Get_Parent(DWORD *pdnDevInst, DWORD dnDevInst, ULONG ulFlags);
 LONG WINAPI CM_Get_Device_IDW(DWORD dnDevInst, LPWSTR Buffer, ULONG BufferLen,
                               ULONG ulFlags);
 DWORD WINAPI CM_MapCrToWin32Err(DWORD CmReturnCode, DWORD DefaultErr);
+
+HANDLE WINAPI CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess,
+                          DWORD dwShareMode, void *lpSecurityAttributes,
+                          DWORD dwCreationDisposition,
+                          DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
+
+HANDLE WINAPI CreateIoCompletionPort(HANDLE FileHandle,
+                                     HANDLE ExistingCompletionPort,
+                                     ULONG_PTR CompletionKey,
+                                     DWORD NumberOfConcurrentThreads);
+
+BOOL WINAPI CloseHandle(HANDLE hObject);
+DWORD WINAPI GetLastError(void);

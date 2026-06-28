@@ -40,6 +40,14 @@ typedef struct {
 } SP_DEVINFO_DATA;
 typedef SP_DEVINFO_DATA *PSP_DEVINFO_DATA;
 
+typedef struct {
+  ULONG_PTR Internal;
+  ULONG_PTR InternalHigh;
+  DWORD Offset;
+  DWORD OffsetHigh;
+  HANDLE hEvent;
+} OVERLAPPED;
+
 BOOL WINAPI SetupDiClassGuidsFromNameW(LPCWSTR ClassName, GUID *ClassGuidList,
                                        DWORD ClassGuidListSize,
                                        DWORD *RequiredSize);
@@ -83,3 +91,11 @@ HANDLE WINAPI CreateIoCompletionPort(HANDLE FileHandle,
 
 BOOL WINAPI CloseHandle(HANDLE hObject);
 DWORD WINAPI GetLastError(void);
+
+HANDLE WINAPI CreateEventW(void *lpEventAttributes, BOOL bManualReset,
+                           BOOL bInitialState, LPCWSTR lpName);
+BOOL WINAPI WriteFile(HANDLE hFile, const void *lpBuffer,
+                      DWORD nNumberOfBytesToWrite,
+                      DWORD *lpNumberOfBytesWritten, OVERLAPPED *lpOverlapped);
+BOOL WINAPI GetOverlappedResult(HANDLE hFile, OVERLAPPED *lpOverlapped,
+                                DWORD *lpNumberOfBytesTransferred, BOOL bWait);

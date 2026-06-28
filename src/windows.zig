@@ -29,6 +29,7 @@ pub fn isValidBaudRate(baudRate: u32) bool {
 pub const Port = struct {
     handle: ?windows.HANDLE = null,
     iocpHandle: ?windows.HANDLE = null,
+    writeEvent: ?c.HANDLE = null,
     io: std.Io,
 
     pub fn init(io: std.Io) Port {
@@ -58,9 +59,19 @@ pub const Port = struct {
             const err: windows.Win32Error = @enumFromInt(c.GetLastError());
             return windows.unexpectedError(err);
         }
+
+        self.writeEvent = c.CreateEventW(null, c.TRUE, c.FALSE, null) orelse {
+            _ = c.CloseHandle(self.handle.?);
+            self.handle = null;
+            return windows.unexpectedError(@enumFromInt(c.GetLastError()));
+        };
     }
 
     pub fn close(self: *@This()) void {
+        if (self.writeEvent) |h| {
+            _ = c.CloseHandle(h);
+            self.writeEvent = null;
+        }
         if (self.iocpHandle) |h| {
             _ = c.CloseHandle(h);
             self.iocpHandle = null;
@@ -74,8 +85,19 @@ pub const Port = struct {
     pub fn configure(_: *@This(), _: port.Options) !void {}
 
     pub fn write(self: *@This(), data: []const u8) !void {
-        _ = self;
-        _ = data;
+        var overlapped = std.mem.zeroes(c.OVERLAPPED);
+        overlapped.hEvent = self.writeEvent.?;
+
+        var written: c.DWORD = 0;
+        if (c.WriteFile(self.handle.?, data.ptr, @intCast(data.len), &written, &overlapped) == c.FALSE) {
+            const err = c.GetLastError();
+            if (err != c.ERROR_IO_PENDING) {
+                return std.os.windows.unexpectedError(@enumFromInt(err));
+            }
+            if (c.GetOverlappedResult(self.handle.?, &overlapped, &written, c.TRUE) == c.FALSE) {
+                return windows.unexpectedError(@enumFromInt(c.GetLastError()));
+            }
+        }
     }
 
     pub fn read(self: *@This(), allocator: std.mem.Allocator, strategy: port.ReadStrategy) ![]u8 {
@@ -289,3 +311,4 @@ const GENERIC_READ: windows.DWORD = 0x80000000;
 const GENERIC_WRITE: windows.DWORD = 0x40000000;
 const OPEN_EXISTING: windows.DWORD = 3;
 const FILE_FLAG_OVERLAPPED: windows.DWORD = 0x40000000;
+const ERROR_IO_PENDING: windows.DWORD = 997;

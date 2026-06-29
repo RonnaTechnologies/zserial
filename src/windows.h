@@ -48,6 +48,32 @@ typedef struct {
   HANDLE hEvent;
 } OVERLAPPED;
 
+typedef struct {
+  DWORD DCBlength;
+  DWORD BaudRate;
+  DWORD flags;
+  WORD wReserved;
+  WORD XonLim;
+  WORD XoffLim;
+  BYTE ByteSize;
+  BYTE Parity;
+  BYTE StopBits;
+  char XonChar;
+  char XoffChar;
+  char ErrorChar;
+  char EofChar;
+  char EvtChar;
+  WORD wReserved1;
+} DCB;
+
+typedef struct {
+  DWORD ReadIntervalTimeout;
+  DWORD ReadTotalTimeoutMultiplier;
+  DWORD ReadTotalTimeoutConstant;
+  DWORD WriteTotalTimeoutMultiplier;
+  DWORD WriteTotalTimeoutConstant;
+} COMMTIMEOUTS;
+
 BOOL WINAPI SetupDiClassGuidsFromNameW(LPCWSTR ClassName, GUID *ClassGuidList,
                                        DWORD ClassGuidListSize,
                                        DWORD *RequiredSize);
@@ -99,3 +125,16 @@ BOOL WINAPI WriteFile(HANDLE hFile, const void *lpBuffer,
                       DWORD *lpNumberOfBytesWritten, OVERLAPPED *lpOverlapped);
 BOOL WINAPI GetOverlappedResult(HANDLE hFile, OVERLAPPED *lpOverlapped,
                                 DWORD *lpNumberOfBytesTransferred, BOOL bWait);
+
+BOOL WINAPI GetCommState(HANDLE hFile, DCB *lpDCB);
+BOOL WINAPI SetCommState(HANDLE hFile, DCB *lpDCB);
+BOOL WINAPI SetCommTimeouts(HANDLE hFile, COMMTIMEOUTS *lpCommTimeouts);
+BOOL WINAPI SetCommMask(HANDLE hFile, DWORD dwEvtMask);
+
+BOOL WINAPI WaitCommEvent(HANDLE hFile, DWORD *lpEvtMask,
+                          OVERLAPPED *lpOverlapped);
+DWORD WINAPI WaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds);
+
+BOOL WINAPI ReadFile(HANDLE hFile, void *lpBuffer, DWORD nNumberOfBytesToRead,
+                     DWORD *lpNumberOfBytesRead, OVERLAPPED *lpOverlapped);
+BOOL WINAPI CancelIo(HANDLE hFile);

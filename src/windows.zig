@@ -186,11 +186,97 @@ pub const Port = struct {
     }
 
     pub fn read(self: *@This(), allocator: std.mem.Allocator, strategy: port.ReadStrategy) ![]u8 {
-        _ = self;
-        _ = allocator;
-        _ = strategy;
+        var buffer: [4096]u8 = undefined;
+        var bytesRead: usize = 0;
 
-        return error.TODO;
+        switch (strategy) {
+            .nonBlocking => {
+                bytesRead = try self.readImpl(buffer[0..]);
+            },
+            .blockingAnyTimeout => |s| {
+                if (try self.waitForData(s.timeout_ms)) {
+                    bytesRead = try self.readImpl(buffer[0..]);
+                } else {
+                    return error.Timeout;
+                }
+            },
+            .blockingMinTimeout => |s| {
+                const startTime = std.Io.Timestamp.now(self.io, .awake);
+
+                while (bytesRead < s.nBytes) {
+                    if (s.timeout_ms != null) {
+                        const endTime = std.Io.Timestamp.addDuration(startTime, std.Io.Duration.fromMilliseconds(s.timeout_ms.?));
+
+                        const remainingTime = endTime.nanoseconds - std.Io.Timestamp.now(self.io, .awake).nanoseconds;
+
+                        if (remainingTime <= 0) {
+                            return error.Timeout;
+                        }
+                    }
+
+                    if (try self.waitForData(s.timeout_ms)) {
+                        bytesRead += try self.readImpl(buffer[bytesRead..]);
+                    } else {
+                        return error.Timeout;
+                    }
+                }
+            },
+        }
+
+        return allocator.dupe(u8, buffer[0..bytesRead]);
+    }
+
+    fn readImpl(self: *@This(), buffer: []u8) !usize {
+        // TODO: c.ResetEvent(self.readEvent.?);
+        var overlapped = std.mem.zeroes(c.OVERLAPPED);
+
+        if (self.readEvent == null or self.handle == null) {
+            return error.PortNotOpen;
+        }
+
+        overlapped.hEvent = self.readEvent.? orelse return 0;
+
+        var n: c.DWORD = 0;
+        if (c.ReadFile(self.handle.?, buffer.ptr, @intCast(buffer.len), &n, &overlapped) == c.FALSE) {
+            const err = c.GetLastError();
+            if (err == ERROR_IO_PENDING) {
+                if (c.GetOverlappedResult(self.handle.?, &overlapped, &n, c.TRUE) == c.FALSE) {
+                    return windows.unexpectedError(@enumFromInt(c.GetLastError()));
+                }
+            } else {
+                return windows.unexpectedError(@enumFromInt(err));
+            }
+        }
+        return @intCast(n);
+    }
+
+    fn waitForData(self: *@This(), timeout_ms: ?u32) !bool {
+        var overlapped = std.mem.zeroes(c.OVERLAPPED);
+        overlapped.hEvent = self.commEvent.? orelse return error.PortNotOpen;
+
+        var evtMask: c.DWORD = 0;
+        if (c.WaitCommEvent(self.handle.?, &evtMask, &overlapped) == c.FALSE) {
+            const err = c.GetLastError();
+            if (err != ERROR_IO_PENDING) {
+                return windows.unexpectedError(@enumFromInt(err));
+            }
+
+            const timeout: c.DWORD = if (timeout_ms) |t| @intCast(t) else INFINITE;
+            switch (c.WaitForSingleObject(self.commEvent.?, timeout)) {
+                WAIT_OBJECT_0 => {
+                    var unused: c.DWORD = 0;
+                    if (c.GetOverlappedResult(self.handle.?, &overlapped, &unused, c.FALSE) == c.FALSE) {
+                        return windows.unexpectedError(@enumFromInt(c.GetLastError()));
+                    }
+                },
+                WAIT_TIMEOUT => {
+                    _ = c.CancelIo(self.handle.?);
+                    return false;
+                },
+                else => return windows.unexpectedError(@enumFromInt(c.GetLastError())),
+            }
+        }
+        return (evtMask & EV_RXCHAR) != 0;
     }
 };
 

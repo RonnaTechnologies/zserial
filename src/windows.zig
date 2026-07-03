@@ -30,6 +30,8 @@ pub const Port = struct {
     handle: ?windows.HANDLE = null,
     iocpHandle: ?windows.HANDLE = null,
     writeEvent: ?c.HANDLE = null,
+    readEvent: ?c.HANDLE = null,
+    commEvent: ?c.HANDLE = null,
     io: std.Io,
 
     pub fn init(io: std.Io) Port {
@@ -65,6 +67,18 @@ pub const Port = struct {
             self.handle = null;
             return windows.unexpectedError(@enumFromInt(c.GetLastError()));
         };
+
+        self.readEvent = c.CreateEventW(null, c.TRUE, c.FALSE, null) orelse {
+            return windows.unexpectedError(@enumFromInt(c.GetLastError()));
+        };
+
+        self.commEvent = c.CreateEventW(null, c.TRUE, c.FALSE, null) orelse {
+            return windows.unexpectedError(@enumFromInt(c.GetLastError()));
+        };
+
+        if (c.SetCommMask(self.handle.?, EV_RXCHAR) == c.FALSE) {
+            return windows.unexpectedError(@enumFromInt(c.GetLastError()));
+        }
     }
 
     pub fn close(self: *@This()) void {
@@ -82,17 +96,88 @@ pub const Port = struct {
         }
     }
 
-    pub fn configure(_: *@This(), _: port.Options) !void {}
+    pub fn configure(self: *@This(), options: port.Options) !void {
+        if (self.handle == null) {
+            return error.PortNotOpen;
+        }
+
+        var dcb = std.mem.zeroes(c.DCB);
+        dcb.DCBlength = @sizeOf(c.DCB);
+
+        if (c.GetCommState(self.handle.?, &dcb) == c.FALSE) {
+            return windows.unexpectedError(@enumFromInt(c.GetLastError()));
+        }
+
+        dcb.BaudRate = options.baudRate;
+
+        dcb.ByteSize = @intFromEnum(options.dataBits);
+
+        dcb.StopBits = switch (options.stopBits) {
+            .one => ONESTOPBIT,
+            .two => TWOSTOPBITS,
+        };
+
+        dcb.Parity = switch (options.parity) {
+            .none => NOPARITY,
+            .odd => ODDPARITY,
+            .even => EVENPARITY,
+        };
+
+        dcb.flags |= DCB_FBINARY;
+
+        if (options.parity != .none) {
+            dcb.flags |= DCB_FPARITY;
+        } else {
+            dcb.flags &= ~@as(c.DWORD, DCB_FPARITY);
+        }
+
+        // hardware control flow
+        dcb.flags &= ~@as(c.DWORD, DCB_FOUTXCTSFLOW | DCB_FRTSCONTROL_MASK);
+        if (options.hardwareFlowControl) {
+            dcb.flags |= DCB_FOUTXCTSFLOW;
+            dcb.flags |= DCB_FRTSCONTROL_HANDSHAKE;
+        } else {
+            dcb.flags |= DCB_FRTSCONTROL_ENABLE;
+        }
+
+        dcb.flags &= ~@as(c.DWORD, DCB_FOUTX | DCB_FINX);
+
+        const DCB_FDTRCONTROL_MASK: c.DWORD = 3 << 4;
+        const DCB_FDTRCONTROL_ENABLE: c.DWORD = 1 << 4;
+
+        dcb.flags &= ~DCB_FDTRCONTROL_MASK;
+        dcb.flags |= DCB_FDTRCONTROL_ENABLE;
+
+        if (c.SetCommState(self.handle.?, &dcb) == c.FALSE) {
+            return windows.unexpectedError(@enumFromInt(c.GetLastError()));
+        }
+
+        var timeouts = std.mem.zeroes(c.COMMTIMEOUTS);
+        timeouts.ReadIntervalTimeout = MAXDWORD;
+        timeouts.ReadTotalTimeoutMultiplier = 0;
+        timeouts.ReadTotalTimeoutConstant = 0;
+        timeouts.WriteTotalTimeoutMultiplier = 0;
+        timeouts.WriteTotalTimeoutConstant = 0;
+
+        if (c.SetCommTimeouts(self.handle.?, &timeouts) == c.FALSE) {
+            return windows.unexpectedError(@enumFromInt(c.GetLastError()));
+        }
+    }
 
     pub fn write(self: *@This(), data: []const u8) !void {
         var overlapped = std.mem.zeroes(c.OVERLAPPED);
+
+        if (self.writeEvent == null) {
+            return error.PortNotOpen;
+        }
+
         overlapped.hEvent = self.writeEvent.?;
 
         var written: c.DWORD = 0;
         if (c.WriteFile(self.handle.?, data.ptr, @intCast(data.len), &written, &overlapped) == c.FALSE) {
             const err = c.GetLastError();
-            if (err != c.ERROR_IO_PENDING) {
-                return std.os.windows.unexpectedError(@enumFromInt(err));
+            if (err != ERROR_IO_PENDING) {
+                return windows.unexpectedError(@enumFromInt(err));
             }
             if (c.GetOverlappedResult(self.handle.?, &overlapped, &written, c.TRUE) == c.FALSE) {
                 return windows.unexpectedError(@enumFromInt(c.GetLastError()));

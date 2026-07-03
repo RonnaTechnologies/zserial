@@ -387,13 +387,56 @@ const DIGCF_PRESENT: c_ulong = 0x0002;
 const DICS_FLAG_GLOBAL: c_ulong = 0x0001;
 const DIREG_DEV: c_ulong = 0x0001;
 const KEY_READ: c_ulong = 0x20019;
-const INVALID_HANDLE_VALUE = windows.INVALID_HANDLE_VALUE;
 const SPDRP_HARDWAREID: c_ulong = 0x0001;
 const SPDRP_FRIENDLYNAME: c_ulong = 0x000C;
 const SPDRP_MFG: c_ulong = 0x000B;
 
-const GENERIC_READ: windows.DWORD = 0x80000000;
-const GENERIC_WRITE: windows.DWORD = 0x40000000;
-const OPEN_EXISTING: windows.DWORD = 3;
-const FILE_FLAG_OVERLAPPED: windows.DWORD = 0x40000000;
-const ERROR_IO_PENDING: windows.DWORD = 997;
+// Sentinel values
+const NULL: ?*anyopaque = null;
+const TRUE: c.BOOL = 1;
+const FALSE: c.BOOL = 0;
+const INVALID_HANDLE_VALUE = windows.INVALID_HANDLE_VALUE;
+
+// CreateFileW access
+const GENERIC_READ: c.DWORD = 0x80000000;
+const GENERIC_WRITE: c.DWORD = 0x40000000;
+
+// CreateFileW creation disposition
+const OPEN_EXISTING: c.DWORD = 3;
+
+// CreateFileW flags
+const FILE_FLAG_OVERLAPPED: c.DWORD = 0x40000000;
+
+// Error codes
+const ERROR_IO_PENDING: c.DWORD = 997;
+
+// MAXDWORD
+const MAXDWORD: c.DWORD = 0xFFFFFFFF;
+
+// DCB flag bits — the real SDK uses a bitfield here; we use a plain DWORD
+// with named constants so the memory layout stays identical
+const DCB_FBINARY: c.DWORD = 1 << 0;
+const DCB_FPARITY: c.DWORD = 1 << 1;
+const DCB_FOUTXCTSFLOW: c.DWORD = 1 << 2;
+const DCB_FOUTX: c.DWORD = 1 << 8;
+const DCB_FINX: c.DWORD = 1 << 9;
+const DCB_FRTSCONTROL_MASK: c.DWORD = 3 << 12;
+const DCB_FRTSCONTROL_ENABLE: c.DWORD = 1 << 12;
+const DCB_FRTSCONTROL_HANDSHAKE: c.DWORD = 2 << 12;
+
+// DCB stop bits
+const ONESTOPBIT: c.BYTE = 0;
+const TWOSTOPBITS: c.BYTE = 2;
+
+// DCB parity
+const NOPARITY: c.BYTE = 0;
+const ODDPARITY: c.BYTE = 1;
+const EVENPARITY: c.BYTE = 2;
+
+// Event stuff
+const EV_RXCHAR: c.DWORD = 0x0001; // character received event
+const WAIT_OBJECT_0: c.DWORD = 0x00000000; // wait satisfied
+const WAIT_TIMEOUT: c.DWORD = 0x00000102; // wait timed out
+const WAIT_FAILED: c.DWORD = 0xFFFFFFFF;
+const INFINITE: c.DWORD = 0xFFFFFFFF;
+const ERROR_IO_INCOMPLETE: c.DWORD = 996; // overlapped I/O not yet complete

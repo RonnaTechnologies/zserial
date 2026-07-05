@@ -303,17 +303,6 @@ pub fn listPorts(io: std.Io, allocator: std.mem.Allocator) !std.ArrayList(port.P
             errdefer portInfo.deinit(allocator);
 
             try serialPorts.append(allocator, portInfo);
-
-            // std.log.debug(
-            //     \\found device:
-            //     \\       device = {s}
-            //     \\       product = "{s}""
-            //     \\       manufacturer = "{s}"
-            //     \\       serial = "{s}"
-            //     \\       vendor Id = 0x{x}
-            //     \\       product Id = 0x{x}
-            //     \\       location = {s}
-            // , portInfo);
         }
     }
     return serialPorts;
